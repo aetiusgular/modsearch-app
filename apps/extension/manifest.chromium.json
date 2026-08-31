@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "AuraSearch",
+  "version": "0.0.1",
+  "description": "Local-first universal fashion search. Personalizes on your device; your data stays local.",
+  "permissions": ["storage", "alarms", "nativeMessaging"],
+  "host_permissions": [],
+  "background": { "service_worker": "background/service-worker.js", "type": "module" },
+  "content_scripts": [],
+  "action": { "default_title": "AuraSearch" }
+}

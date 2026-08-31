@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aurasearch.dev/schema/listing-change.schema.json",
+  "title": "ListingChange",
+  "description": "Wire contract v1 for a listing-catalog change. Discriminated union of 4 kinds, keyed on `kind`. Mirrors the engine's src/recs/schemas/listings.py. NOTE: for AuraSearch's universal search, ListingPayload will gain source-marketplace, listing_url, external_id, and checked_at (staleness) fields; those are a planned additive v1.1 change and are documented in README.md, not yet in this v1 schema, to preserve parity with the engine's golden reference.",
+  "$defs": {
+    "listing_payload": {
+      "type": "object",
+      "description": "Catalog metadata (ListingPayload). extra=forbid in the engine.",
+      "properties": {
+        "brand": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "era": { "type": ["string", "null"], "default": null },
+        "designer": { "type": ["string", "null"], "default": null },
+        "material": { "type": ["string", "null"], "default": null },
+        "category": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "subcategory": { "type": ["string", "null"], "default": null },
+        "price": { "type": "number", "exclusiveMinimum": 0 },
+        "size": { "type": ["string", "null"], "default": null },
+        "condition": { "type": ["string", "null"], "default": null },
+        "aesthetic_tags": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "seller_rating": { "type": ["number", "null"], "minimum": 0.0, "maximum": 5.0, "default": null },
+        "listed_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["brand", "category", "price", "listed_at"]
+    }
+  },
+  "oneOf": [
+    {
+      "title": "ListingCreated",
+      "type": "object",
+      "properties": {
+        "kind": { "const": "created" },
+        "listing_id": { "type": "string", "format": "uuid" },
+        "payload": { "$ref": "#/$defs/listing_payload" },
+        "photo_paths": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 16 },
+        "primary_index": { "type": "integer", "minimum": 0, "default": 0 }
+      },
+      "required": ["kind", "listing_id", "payload", "photo_paths"]
+    },
+    {
+      "title": "ListingUpdated",
+      "type": "object",
+      "properties": {
+        "kind": { "const": "updated" },
+        "listing_id": { "type": "string", "format": "uuid" },
+        "payload": { "$ref": "#/$defs/listing_payload" },
+        "photo_paths": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 16 },
+        "primary_index": { "type": "integer", "minimum": 0, "default": 0 }
+      },
+      "required": ["kind", "listing_id", "payload", "photo_paths"]
+    },
+    {
+      "title": "ListingSold",
+      "type": "object",
+      "properties": {
+        "kind": { "const": "sold" },
+        "listing_id": { "type": "string", "format": "uuid" }
+      },
+      "required": ["kind", "listing_id"]
+    },
+    {
+      "title": "ListingDeleted",
+      "type": "object",
+      "properties": {
+        "kind": { "const": "deleted" },
+        "listing_id": { "type": "string", "format": "uuid" }
+      },
+      "required": ["kind", "listing_id"]
+    }
+  ]
+}

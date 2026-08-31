@@ -1,0 +1,17 @@
+{
+  "name": "@aurasearch/contract",
+  "version": "0.1.0",
+  "description": "AuraSearch wire contract (telemetry events, listing changes) as JSON Schema + generated TS types. Single source of truth, mirrors the engine's Pydantic models.",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "main": "src/index.ts",
+  "files": ["schema", "src"],
+  "scripts": {
+    "generate": "json-schema-to-typescript --input 'schema/*.json' --output src/generated/",
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "json-schema-to-typescript": "^15.0.0",
+    "typescript": "^5.5.0"
+  }
+}

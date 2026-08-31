@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aurasearch.dev/schema/telemetry-event.schema.json",
+  "title": "TelemetryEvent",
+  "description": "Wire contract v1 for a single telemetry event. Discriminated union of 12 event kinds, keyed on `type`. Mirrors the engine's src/recs/schemas/events.py exactly; the engine's Pydantic models are the parity reference. Kept in sync via ADR-0001.",
+  "$defs": {
+    "envelope": {
+      "type": "object",
+      "description": "Fields shared by every event (_EventBase).",
+      "properties": {
+        "event_id": { "type": "string", "format": "uuid" },
+        "session_id": { "type": "string", "minLength": 8, "maxLength": 128 },
+        "user_id": { "type": ["string", "null"], "maxLength": 128, "default": null },
+        "device_id": { "type": "string", "minLength": 8, "maxLength": 128 },
+        "client_ts": { "type": "string", "format": "date-time", "description": "Timezone-aware ISO-8601." },
+        "schema_version": { "const": 1 }
+      },
+      "required": ["event_id", "session_id", "device_id", "client_ts", "type"]
+    },
+    "unit_fraction": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+    "length_bucket": { "type": "string", "enum": ["short", "medium", "long"], "default": "short" }
+  },
+  "oneOf": [
+    {
+      "title": "ImpressionStart",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "impression_start" },
+        "item_id": { "type": "string", "format": "uuid" },
+        "position": { "type": "integer", "minimum": 0, "default": 0 },
+        "viewport_pct": { "$ref": "#/$defs/unit_fraction" }
+      },
+      "required": ["item_id", "viewport_pct"]
+    },
+    {
+      "title": "ImpressionEnd",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "impression_end" },
+        "item_id": { "type": "string", "format": "uuid" },
+        "dwell_ms": { "type": "integer", "minimum": 0 },
+        "max_viewport_pct": { "$ref": "#/$defs/unit_fraction" }
+      },
+      "required": ["item_id", "dwell_ms", "max_viewport_pct"]
+    },
+    {
+      "title": "Heartbeat",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "heartbeat" },
+        "item_id": { "type": ["string", "null"], "format": "uuid", "default": null },
+        "visible": { "type": "boolean" }
+      },
+      "required": ["visible"]
+    },
+    {
+      "title": "ScrollDepth",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "scroll_depth" },
+        "page": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "depth_pct": { "$ref": "#/$defs/unit_fraction" },
+        "velocity_bucket": { "type": "string", "enum": ["slow", "medium", "fast"] }
+      },
+      "required": ["page", "depth_pct", "velocity_bucket"]
+    },
+    {
+      "title": "ClickDetail",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "click_detail" },
+        "item_id": { "type": "string", "format": "uuid" },
+        "source": { "type": "string", "enum": ["feed", "search", "profile", "external"], "default": "feed" }
+      },
+      "required": ["item_id"]
+    },
+    {
+      "title": "Like",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": { "type": { "const": "like" }, "item_id": { "type": "string", "format": "uuid" } },
+      "required": ["item_id"]
+    },
+    {
+      "title": "Unlike",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": { "type": { "const": "unlike" }, "item_id": { "type": "string", "format": "uuid" } },
+      "required": ["item_id"]
+    },
+    {
+      "title": "Save",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": { "type": { "const": "save" }, "item_id": { "type": "string", "format": "uuid" } },
+      "required": ["item_id"]
+    },
+    {
+      "title": "Unsave",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": { "type": { "const": "unsave" }, "item_id": { "type": "string", "format": "uuid" } },
+      "required": ["item_id"]
+    },
+    {
+      "title": "Comment",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "comment" },
+        "item_id": { "type": "string", "format": "uuid" },
+        "length_bucket": { "$ref": "#/$defs/length_bucket" }
+      },
+      "required": ["item_id"]
+    },
+    {
+      "title": "Inquiry",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "inquiry" },
+        "item_id": { "type": "string", "format": "uuid" },
+        "length_bucket": { "$ref": "#/$defs/length_bucket" }
+      },
+      "required": ["item_id"]
+    },
+    {
+      "title": "Search",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "search" },
+        "query_hash": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "filters": { "type": "object", "additionalProperties": { "type": "string" }, "default": {} }
+      },
+      "required": ["query_hash"]
+    }
+  ]
+}

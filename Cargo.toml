@@ -1,0 +1,5 @@
+# Rust side of the monorepo (the desktop client's sidecar and, later, the Tauri crate).
+# Native Cargo workspace; no Bazel/Nx (ADR-0001).
+[workspace]
+resolver = "2"
+members = ["apps/desktop/crates/sidecar"]

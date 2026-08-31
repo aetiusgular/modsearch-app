@@ -1,0 +1,13 @@
+{
+  "name": "aurasearch-app",
+  "private": true,
+  "version": "0.0.0",
+  "description": "AuraSearch public client monorepo: browser extension + desktop client + shared wire contract.",
+  "license": "GPL-3.0-only",
+  "packageManager": "pnpm@9",
+  "scripts": {
+    "generate": "pnpm -C packages/contract generate",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint"
+  }
+}

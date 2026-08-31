@@ -1,0 +1,7 @@
+node_modules/
+dist/
+target/
+*.tsbuildinfo
+packages/contract/src/generated/
+.env
+.DS_Store
