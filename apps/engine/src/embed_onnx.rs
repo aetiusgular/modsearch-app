@@ -66,24 +66,51 @@ pub struct OnnxImageEncoder {
 }
 
 impl OnnxImageEncoder {
-    /// Build a session for the vision model at `model_path`, selecting the
-    /// platform accelerator with a CPU fallback. Logs the model and preferred
-    /// provider to stderr (stdout carries the framed protocol, never logs).
+    /// Build an encoder for the vision model at `model_path`. The provider
+    /// default is CPU, deliberately: CPU int8 execution is bit-identical across
+    /// machines, so embeddings and the rankings built on them are reproducible
+    /// everywhere, which is the whole point of the determinism kernel. The
+    /// platform accelerator (CoreML on macOS, DirectML on Windows) is opt-in via
+    /// MOD_ENGINE_ONNX_PROVIDER=auto. It is faster but runs this int8 model
+    /// through a different kernel path, so its embeddings drift from the CPU
+    /// reference (~0.92 cosine on Marqo-FashionSigLIP) and are only
+    /// self-consistent within one machine; use it only when the whole catalog
+    /// and all queries are encoded on that same accelerator.
     pub fn new(model_path: &str) -> Result<Self> {
+        let use_accel = std::env::var("MOD_ENGINE_ONNX_PROVIDER")
+            .map(|v| {
+                let v = v.trim().to_ascii_lowercase();
+                v == "auto" || v == "accelerator" || v == "coreml" || v == "directml"
+            })
+            .unwrap_or(false);
+        Self::build(model_path, !use_accel)
+    }
+
+    /// Force CPU (the deterministic reference path) or the platform accelerator,
+    /// bypassing the env. The parity test uses this to measure both; callers can
+    /// use it to pin a provider explicitly.
+    #[allow(dead_code)]
+    pub fn new_forced(model_path: &str, force_cpu: bool) -> Result<Self> {
+        Self::build(model_path, force_cpu)
+    }
+
+    fn build(model_path: &str, force_cpu: bool) -> Result<Self> {
         let mut providers: Vec<ExecutionProviderDispatch> = Vec::new();
         #[allow(unused_mut)]
         let mut provider = "CPU";
-        #[cfg(target_os = "macos")]
-        {
-            use ort::execution_providers::CoreML;
-            providers.push(CoreML::default().build());
-            provider = "CoreML";
-        }
-        #[cfg(target_os = "windows")]
-        {
-            use ort::execution_providers::DirectML;
-            providers.push(DirectML::default().build());
-            provider = "DirectML";
+        if !force_cpu {
+            #[cfg(target_os = "macos")]
+            {
+                use ort::execution_providers::CoreML;
+                providers.push(CoreML::default().build());
+                provider = "CoreML";
+            }
+            #[cfg(target_os = "windows")]
+            {
+                use ort::execution_providers::DirectML;
+                providers.push(DirectML::default().build());
+                provider = "DirectML";
+            }
         }
         providers.push(CPU::default().build());
         eprintln!(
@@ -182,7 +209,16 @@ mod tests {
 
     /// Full inference parity, run on a machine that has the model. Set
     /// MOD_ENGINE_MODEL to the vision model onnx and generate ref_embed_224.f32
-    /// with scripts/onnx_reference.py; otherwise this self-skips (e.g. in CI).
+    /// with scripts/onnx_reference.py (which uses the CPU provider); otherwise
+    /// this self-skips (e.g. in CI).
+    ///
+    /// The gate is CPU vs the Python CPU reference: same onnxruntime dylib, same
+    /// int8 kernels, same input, so they must agree to near machine precision.
+    /// That is what proves the preprocessing + ort port is numerically correct.
+    /// The platform accelerator is then measured but NOT gated tightly: CoreML/
+    /// DirectML run this int8 model through a different kernel path and drift
+    /// from the CPU reference (~0.92 on this model), which is expected and fine
+    /// as long as one provider encodes the whole vector space.
     #[test]
     fn inference_parity_with_python_when_model_present() {
         let Ok(model) = std::env::var("MOD_ENGINE_MODEL") else {
@@ -194,15 +230,31 @@ mod tests {
             eprintln!("skip inference parity: run scripts/onnx_reference.py to emit {}", ref_path.display());
             return;
         }
-        let enc = OnnxImageEncoder::new(&model).unwrap();
-        let got = enc.encode_image(&std::fs::read(fixture("test_image_224.png")).unwrap()).unwrap();
+        let img = std::fs::read(fixture("test_image_224.png")).unwrap();
         let want = read_f32(&ref_path);
-        assert_eq!(got.len(), EMBED_DIM);
         assert_eq!(want.len(), EMBED_DIM);
-        // Both are L2-normalized, so cosine == dot; same ORT + model + input
-        // should agree to well within 1e-3.
-        let cos: f64 = got.iter().zip(&want).map(|(a, b)| *a as f64 * *b as f64).sum();
-        eprintln!("onnx inference parity cosine = {cos:.6} (provider {})", enc.provider());
-        assert!(cos > 0.999, "onnx inference parity cosine {cos} below 0.999");
+        // Both sides L2-normalize, so cosine == dot.
+        let cosine = |got: &[f32]| -> f64 { got.iter().zip(&want).map(|(a, b)| *a as f64 * *b as f64).sum() };
+
+        // Correctness gate: CPU must match the Python CPU reference to near
+        // machine precision. This is the proof the port is numerically right.
+        let enc_cpu = OnnxImageEncoder::new_forced(&model, true).unwrap();
+        let got_cpu = enc_cpu.encode_image(&img).unwrap();
+        assert_eq!(got_cpu.len(), EMBED_DIM);
+        let cos_cpu = cosine(&got_cpu);
+        eprintln!("onnx CPU parity cosine = {cos_cpu:.6} (provider {})", enc_cpu.provider());
+        assert!(cos_cpu > 0.999, "onnx CPU parity cosine {cos_cpu} below 0.999: preprocessing or ort integration is off");
+
+        // Characterization, not a gate: the platform accelerator drifts from the
+        // CPU reference on this int8 model. Logged so the drift is a known
+        // quantity, with a loose floor that still catches a wired-up-wrong
+        // accelerator (which would score near zero).
+        let enc_acc = OnnxImageEncoder::new_forced(&model, false).unwrap();
+        if enc_acc.provider() != "CPU" {
+            let got_acc = enc_acc.encode_image(&img).unwrap();
+            let cos_acc = cosine(&got_acc);
+            eprintln!("onnx {} vs CPU-reference cosine = {cos_acc:.6} (characterization, not gated)", enc_acc.provider());
+            assert!(cos_acc > 0.85, "onnx {} cosine {cos_acc} implausibly low; accelerator path likely broken", enc_acc.provider());
+        }
     }
 }

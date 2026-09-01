@@ -14,6 +14,10 @@ path = "src/main.rs"
 # carry zero extra deps and no native ONNX Runtime. Enable with
 # `--features onnx` (validated on macOS/Windows where CoreML/DirectML apply).
 onnx = ["dep:ort", "dep:image"]
+# A16: real-boutique ingest. Implies onnx (it embeds photos) and adds a blocking
+# HTTP client for the products.json + image fetch. Opt-in so the default/CI
+# build stays network-free; the fetch only ever runs on a user's machine.
+ingest = ["onnx", "dep:ureq"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -27,4 +31,8 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 # and are cfg-selected at call time. `image` decodes + resizes garment photos.
 ort = { version = "2.0.0-rc.13", default-features = false, features = ["load-dynamic", "coreml", "directml", "ndarray"], optional = true }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"], optional = true }
+# A16 (opt-in, via the `ingest` feature): blocking HTTP for products.json + image
+# fetch. rustls + bundled Mozilla roots (webpki-roots) so there is no OpenSSL or
+# system-cert dependency. gzip for Shopify's compressed catalog responses.
+ureq = { version = "2", optional = true }
 

@@ -10,6 +10,7 @@
 use crate::model::Listing;
 use anyhow::{anyhow, Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
+use std::collections::BTreeMap;
 
 /// Float32 little-endian vector codec (port of profiles/codec.py). The blob
 /// layout is the parity contract with the engine: dim x 4 bytes, LE, finite.
@@ -52,7 +53,7 @@ pub struct Store {
     conn: Connection,
 }
 
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 
 impl Store {
     /// Open (or create) the store at `path`; ":memory:" for tests.
@@ -154,6 +155,22 @@ impl Store {
                  COMMIT;",
             )?;
         }
+        if v < 2 {
+            // A16: real image vectors persisted per listing (the synthetic
+            // encoder recomputes from attributes, but ONNX vectors come from the
+            // photo and must be stored). dim is carried per row so 512-d synthetic
+            // and 768-d ONNX catalogs can coexist across databases.
+            self.conn.execute_batch(
+                "BEGIN;
+                 CREATE TABLE item_vectors (
+                   id  TEXT PRIMARY KEY,
+                   dim INTEGER NOT NULL,
+                   vec BLOB NOT NULL
+                 );
+                 PRAGMA user_version = 2;
+                 COMMIT;",
+            )?;
+        }
         let now: i64 = self.conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
         if now != SCHEMA_VERSION {
             return Err(anyhow!("unsupported schema version {now}"));
@@ -191,6 +208,47 @@ impl Store {
         let mut out = Vec::new();
         for j in rows {
             out.push(serde_json::from_str(&j?)?);
+        }
+        Ok(out)
+    }
+
+    // ---- item vectors (A16) ----
+
+    /// Store one listing's image embedding (upsert). Rejects non-finite values
+    /// through the same codec guard the profile vectors use.
+    pub fn put_item_vector(&self, id: &str, v: &[f32]) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO item_vectors (id, dim, vec) VALUES (?1, ?2, ?3)",
+            params![id, v.len() as i64, vec_to_bytes(v)?],
+        )?;
+        Ok(())
+    }
+
+    /// One listing's stored vector, if any. The width is read from the row, so
+    /// callers do not need to know the encoder that produced it.
+    pub fn get_item_vector(&self, id: &str) -> Result<Option<Vec<f32>>> {
+        let row: Option<(i64, Vec<u8>)> = self
+            .conn
+            .query_row(
+                "SELECT dim, vec FROM item_vectors WHERE id = ?1",
+                params![id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        row.map(|(dim, blob)| bytes_to_vec(&blob, dim as usize)).transpose()
+    }
+
+    /// Every stored vector, keyed by listing id (id-sorted, so downstream order
+    /// is stable). Each row is decoded at its own stored width.
+    pub fn all_item_vectors(&self) -> Result<BTreeMap<String, Vec<f32>>> {
+        let mut stmt = self.conn.prepare("SELECT id, dim, vec FROM item_vectors ORDER BY id")?;
+        let rows = stmt.query_map([], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, Vec<u8>>(2)?))
+        })?;
+        let mut out = BTreeMap::new();
+        for row in rows {
+            let (id, dim, blob) = row?;
+            out.insert(id, bytes_to_vec(&blob, dim as usize)?);
         }
         Ok(out)
     }
@@ -451,6 +509,23 @@ mod tests {
         assert_eq!(loaded.len(), cat.len());
         let hist = s.price_history(&cat[0].id).unwrap();
         assert_eq!(hist.len(), cat[0].price_history.len());
+    }
+
+    #[test]
+    fn item_vectors_roundtrip_at_any_width() {
+        let s = Store::open(":memory:").unwrap();
+        assert!(s.get_item_vector("shopify:x:1").unwrap().is_none());
+        let v: Vec<f32> = (0..768).map(|i| (i as f32).sin()).collect();
+        s.put_item_vector("shopify:x:1", &v).unwrap();
+        s.put_item_vector("shopify:x:2", &[0.1, 0.2, 0.3]).unwrap();
+        assert_eq!(s.get_item_vector("shopify:x:1").unwrap().unwrap(), v);
+        let all = s.all_item_vectors().unwrap();
+        assert_eq!(all.len(), 2);
+        assert_eq!(all["shopify:x:1"].len(), 768);
+        assert_eq!(all["shopify:x:2"].len(), 3);
+        // upsert replaces in place
+        s.put_item_vector("shopify:x:2", &[1.0, 2.0]).unwrap();
+        assert_eq!(s.get_item_vector("shopify:x:2").unwrap().unwrap(), vec![1.0, 2.0]);
     }
 
     #[test]

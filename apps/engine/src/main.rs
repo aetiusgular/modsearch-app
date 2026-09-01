@@ -21,6 +21,8 @@ mod eval;
 mod evalrun;
 mod fixtures;
 mod handlers;
+#[cfg(feature = "ingest")]
+mod ingest;
 mod model;
 mod protocol;
 mod rank;
@@ -381,6 +383,70 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // A16 (ingest feature): `ingest-shopify <url>` pulls a boutique's
+    // products.json, embeds each photo on the CPU encoder, and persists listing
+    // + vector into the store at MOD_ENGINE_DB (use a dedicated DB to keep the
+    // real catalog separate from the synthetic fixtures).
+    #[cfg(feature = "ingest")]
+    if std::env::args().nth(1).as_deref() == Some("ingest-shopify") {
+        let url = std::env::args().nth(2)
+            .ok_or_else(|| anyhow::anyhow!("usage: modsearch-engine ingest-shopify <https://boutique-domain>"))?;
+        let model = std::env::var("MOD_ENGINE_MODEL")
+            .map_err(|_| anyhow::anyhow!("set MOD_ENGINE_MODEL to the vision_model onnx path"))?;
+        let st = Store::open(&db_path())?;
+        let t0 = std::time::Instant::now();
+        let stats = ingest::run(&url, &st, &model)?;
+        eprintln!(
+            "[ingest] done: {} embedded, {} skipped, dim {}, {:.1}s -> {}",
+            stats.embedded, stats.skipped, stats.dim, t0.elapsed().as_secs_f64(), db_path()
+        );
+        println!(
+            "{}",
+            serde_json::to_string(&json!({
+                "embedded": stats.embedded, "skipped": stats.skipped, "dim": stats.dim
+            }))?
+        );
+        return Ok(());
+    }
+
+    // A16: `nn <item_id> [k]` — nearest neighbors over the ingested image
+    // vectors by cosine. The qualitative spot check that the visual encoder
+    // groups like-looking garments. Store-only, so no onnx/ingest build needed.
+    if std::env::args().nth(1).as_deref() == Some("nn") {
+        let id = std::env::args().nth(2)
+            .ok_or_else(|| anyhow::anyhow!("usage: modsearch-engine nn <item_id> [k]"))?;
+        let k: usize = std::env::args().nth(3).and_then(|s| s.parse().ok()).unwrap_or(8);
+        let st = Store::open(&db_path())?;
+        let vecs = st.all_item_vectors()?;
+        if vecs.is_empty() {
+            anyhow::bail!("no ingested vectors in {}; run `ingest-shopify <url>` first", db_path());
+        }
+        let query = vecs
+            .get(&id)
+            .ok_or_else(|| anyhow::anyhow!("no vector for '{id}' among {} ingested items", vecs.len()))?;
+        let catalog = st.load_catalog()?;
+        let by_id: std::collections::BTreeMap<&str, &Listing> =
+            catalog.iter().map(|l| (l.id.as_str(), l)).collect();
+        let mut scored: Vec<(f64, &String)> = vecs
+            .iter()
+            .filter(|(vid, _)| vid.as_str() != id)
+            .map(|(vid, v)| (retrieval::dot(query, v), vid))
+            .collect();
+        // total order: cosine desc, id asc (the engine's comparator discipline).
+        scored.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.cmp(b.1)));
+        let label = |l: &Listing| format!("{} · {} · {} · ${:.0}", l.title, l.brand, l.color, l.price);
+        if let Some(q) = by_id.get(id.as_str()) {
+            eprintln!("query {id}: {}", label(q));
+        }
+        for (cos, vid) in scored.into_iter().take(k) {
+            match by_id.get(vid.as_str()) {
+                Some(l) => println!("{cos:.4}  {}", label(l)),
+                None => println!("{cos:.4}  {vid}"),
+            }
+        }
+        return Ok(());
+    }
+
     let st = Store::open(&db_path())?;
     st.seed_catalog(&fixtures::catalog())?;
     let catalog = st.load_catalog()?; // A10: the feed serves rows from the store
@@ -683,8 +749,11 @@ mod tests {
     #[test]
     fn hide_voids_the_open_episode_and_records() {
         let env = test_env();
-        // open an episode with a pending save on it_010
-        call(&env, r#"{"type":"recordEvents","userId":"golden","events":[
+        // open an episode with a pending save on it_010. Pin the request ts to
+        // the event instant so the idle sweep is a function of the stream, not of
+        // now_ms(); otherwise this episode flushes whenever the wall clock is
+        // more than the 60s idle horizon past 10:00Z (i.e. any run after that).
+        call(&env, r#"{"type":"recordEvents","userId":"golden","ts":1788256800000,"events":[
             {"event_id":"h1","type":"save","item_id":"it_010","session_id":"s1234567","device_id":"d1234567","client_ts":"2026-09-01T10:00:00Z"}
         ]}"#);
         assert!(env.st.get_episode("u:golden", "it_010").unwrap().is_some());
@@ -727,13 +796,16 @@ mod tests {
     #[test]
     fn stale_episode_flushes_on_idle_horizon() {
         let env = test_env();
-        let first = r#"{"type":"recordEvents","userId":"golden","events":[
+        // Explicit request ts (the event instant) so the idle sweep depends on
+        // the stream, not the wall clock; without it now_ms() flushes it_030 on
+        // the first call and the "stays open" assertion trips after 10:01Z.
+        let first = r#"{"type":"recordEvents","userId":"golden","ts":1788256800000,"events":[
             {"event_id":"a1","type":"like","item_id":"it_030","session_id":"s1234567","device_id":"d1234567","client_ts":"2026-09-01T10:00:00Z"}
         ]}"#;
         let resp = call(&env, first);
         assert_eq!(resp["data"]["flushed"], 0, "episode stays open inside the idle horizon");
         // a later batch (2 minutes on) for another item pushes the idle sweep past it
-        let second = r#"{"type":"recordEvents","userId":"golden","events":[
+        let second = r#"{"type":"recordEvents","userId":"golden","ts":1788256920000,"events":[
             {"event_id":"a2","type":"like","item_id":"it_031","session_id":"s1234567","device_id":"d1234567","client_ts":"2026-09-01T10:02:00Z"}
         ]}"#;
         let resp2 = call(&env, second);
