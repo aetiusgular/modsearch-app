@@ -27,13 +27,18 @@ These mirror the engine's Pydantic models in `aura-recs-engine/src/recs/schemas/
 
 The wire uses `dwell_ms` and `max_viewport_pct`. The engine's executable reference uses `dwell_time_ms` and `viewport_ratio`. The engine's aggregator is the mapping boundary. The wire (this package) always uses the `dwell_ms` / `max_viewport_pct` names.
 
-## Planned v1.1 (AuraSearch extensions, not yet in the schema)
+## AuraSearch extensions in the listing schema (added)
 
-AuraSearch is universal search across marketplaces, so `ListingPayload` will gain, as an additive change:
-- `source` — the marketplace or boutique the listing came from (ebay, shopify:<store>, agora, ...)
-- `listing_url` — the canonical URL to the item
-- `external_id` — the source's own id
-- `checked_at` — when availability was last verified, for the staleness handling the PRD requires (secondhand listings are quantity-one and vanish fast)
+`listing-change.schema.json` now carries AuraSearch's cross-marketplace fields on `ListingPayload`, marked with an AURASEARCH EXTENSION note in each field description:
+- `source` — the marketplace or boutique the listing came from (ebay, shopify:<store>, grailed, agora, ...)
+- `listing_url`, `external_id`, `currency`
+- `color` — normalized primary color, for the color filter
 - `condition_tier` — a normalized condition scale for cross-marketplace comparison
+- `checked_at` — when availability/price was last verified, for staleness handling (secondhand listings are quantity-one and vanish fast)
+- `measurements` — a normalized garment-measurement object (pit_to_pit, shoulder, length, sleeve, waist, hip, inseam, rise, thigh), the key differentiator for filtering. `source_field` flags whether each came from structured data, parsed text, OCR of a measurement photo, or the user.
 
-And `TelemetryEvent` will gain the extended coefficients the engine already supports behind a flag: `offer`, `purchase`, `hide`. These are held out of v1 to keep parity with the engine's golden reference until the port lands. See `AURASEARCH_PRD_v3.md` sections 3 and 4.
+The forked engine (`aura-recs-engine`) must add matching optional fields when these are wired; they are additive and do not change the engine's existing golden reference.
+
+## Planned v1.1 (telemetry, not yet in the schema)
+
+`TelemetryEvent` will gain the extended coefficients the engine already supports behind a flag: `offer`, `purchase`, `hide`. These are held out of v1 to keep parity with the engine's golden reference until the port lands. See `AURASEARCH_PRD_v3.md` sections 3 and 4.

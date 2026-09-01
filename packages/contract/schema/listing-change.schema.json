@@ -2,11 +2,34 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aurasearch.dev/schema/listing-change.schema.json",
   "title": "ListingChange",
-  "description": "Wire contract v1 for a listing-catalog change. Discriminated union of 4 kinds, keyed on `kind`. Mirrors the engine's src/recs/schemas/listings.py. NOTE: for AuraSearch's universal search, ListingPayload will gain source-marketplace, listing_url, external_id, and checked_at (staleness) fields; those are a planned additive v1.1 change and are documented in README.md, not yet in this v1 schema, to preserve parity with the engine's golden reference.",
+  "description": "Wire contract for a listing-catalog change. Discriminated union of 4 kinds, keyed on `kind`. The core mirrors the engine's src/recs/schemas/listings.py; the fields under the AURASEARCH EXTENSIONS comment (source, listing_url, external_id, condition_tier, color, checked_at, measurements) are AuraSearch additions beyond the engine's parity baseline, needed for universal cross-marketplace search and the measurement/color/condition filters. The forked engine must add matching optional fields when these are wired.",
   "$defs": {
+    "measurements": {
+      "type": "object",
+      "description": "Normalized garment measurements. All numeric fields optional; whichever the listing provides or we can extract. Powers the measurement filter (the key differentiator). unit says how to read the numbers.",
+      "properties": {
+        "unit": { "type": "string", "enum": ["cm", "in"], "default": "cm" },
+        "pit_to_pit": { "type": "number", "exclusiveMinimum": 0 },
+        "shoulder": { "type": "number", "exclusiveMinimum": 0 },
+        "length": { "type": "number", "exclusiveMinimum": 0 },
+        "sleeve": { "type": "number", "exclusiveMinimum": 0 },
+        "waist": { "type": "number", "exclusiveMinimum": 0 },
+        "hip": { "type": "number", "exclusiveMinimum": 0 },
+        "inseam": { "type": "number", "exclusiveMinimum": 0 },
+        "rise": { "type": "number", "exclusiveMinimum": 0 },
+        "thigh": { "type": "number", "exclusiveMinimum": 0 },
+        "waist_to_hem": { "type": "number", "exclusiveMinimum": 0 },
+        "source_field": {
+          "type": "string",
+          "enum": ["structured", "parsed_text", "ocr_photo", "user_entered"],
+          "description": "Where the numbers came from, so the UI can flag lower-confidence (parsed/ocr) measurements."
+        }
+      },
+      "additionalProperties": false
+    },
     "listing_payload": {
       "type": "object",
-      "description": "Catalog metadata (ListingPayload). extra=forbid in the engine.",
+      "description": "Catalog metadata. Core fields mirror ListingPayload in the engine.",
       "properties": {
         "brand": { "type": "string", "minLength": 1, "maxLength": 128 },
         "era": { "type": ["string", "null"], "default": null },
@@ -15,11 +38,25 @@
         "category": { "type": "string", "minLength": 1, "maxLength": 64 },
         "subcategory": { "type": ["string", "null"], "default": null },
         "price": { "type": "number", "exclusiveMinimum": 0 },
-        "size": { "type": ["string", "null"], "default": null },
-        "condition": { "type": ["string", "null"], "default": null },
+        "size": { "type": ["string", "null"], "default": null, "description": "The labeled size (S/M/L, 32, EU 40). Unreliable across brands/eras; measurements are the real filter." },
+        "condition": { "type": ["string", "null"], "default": null, "description": "Free-text condition as the source stated it." },
         "aesthetic_tags": { "type": "array", "items": { "type": "string" }, "default": [] },
         "seller_rating": { "type": ["number", "null"], "minimum": 0.0, "maximum": 5.0, "default": null },
-        "listed_at": { "type": "string", "format": "date-time" }
+        "listed_at": { "type": "string", "format": "date-time" },
+
+        "source": { "type": "string", "description": "AURASEARCH EXTENSION. Marketplace/boutique id: ebay, shopify:<store>, grailed, agora, ..." },
+        "listing_url": { "type": "string", "format": "uri", "description": "AURASEARCH EXTENSION. Canonical URL to the item." },
+        "external_id": { "type": "string", "description": "AURASEARCH EXTENSION. The source's own id for the item." },
+        "currency": { "type": "string", "description": "AURASEARCH EXTENSION. ISO-4217 code for `price` (default USD).", "default": "USD" },
+        "color": { "type": ["string", "null"], "default": null, "description": "AURASEARCH EXTENSION. Primary color, normalized for the color filter." },
+        "condition_tier": {
+          "type": ["string", "null"],
+          "enum": ["new", "like_new", "excellent", "good", "fair", "poor", null],
+          "default": null,
+          "description": "AURASEARCH EXTENSION. Normalized condition scale for cross-marketplace comparison."
+        },
+        "checked_at": { "type": ["string", "null"], "format": "date-time", "default": null, "description": "AURASEARCH EXTENSION. When availability/price was last verified. Drives staleness handling; secondhand items are quantity-one and vanish fast." },
+        "measurements": { "$ref": "#/$defs/measurements" }
       },
       "required": ["brand", "category", "price", "listed_at"]
     }
