@@ -39,6 +39,12 @@ pub struct EngineConfig {
     /// Feed queries switch from clip_base to the aesthetic space here.
     pub switch_to_aes_at: i64,
     pub max_norm_guard: f64,
+    /// A12: which item encoder produces vectors. "synthetic" (default,
+    /// attribute-structured, deterministic) or "onnx" (real Marqo-FashionSigLIP
+    /// vision embeddings; needs the `onnx` feature + a model). Part of the
+    /// config because it changes the vector space, so a feed is attributable to
+    /// it via config_hash. onnx implies vector_dim 768.
+    pub encoder_kind: String,
 
     // ---- graph (GraphSettings) ----
     /// fused = cos * (1 + gamma * jaccard).
@@ -86,6 +92,7 @@ impl Default for EngineConfig {
             vector_dim: 512,
             switch_to_aes_at: 10,
             max_norm_guard: 100.0,
+            encoder_kind: "synthetic".to_string(),
             gamma: 0.25,
             history_k: 50,
             w_cos: 0.75,
@@ -144,7 +151,7 @@ mod tests {
         // Golden. If a ranking default changes, this moves, and it must move
         // consciously: update the pin in the same commit that changes the
         // default, and say why in the commit message.
-        assert_eq!(EngineConfig::default().config_hash(), "efbbd295115d3837");
+        assert_eq!(EngineConfig::default().config_hash(), "d127cd100cb30f21");
     }
 
     #[test]

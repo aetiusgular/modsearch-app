@@ -9,6 +9,12 @@ description = "ModSearch headless on-device engine service. Framed native messag
 name = "modsearch-engine"
 path = "src/main.rs"
 
+[features]
+# A12: the real ONNX image encoder. OFF by default so the standard build and CI
+# carry zero extra deps and no native ONNX Runtime. Enable with
+# `--features onnx` (validated on macOS/Windows where CoreML/DirectML apply).
+onnx = ["dep:ort", "dep:image"]
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -16,4 +22,9 @@ anyhow = "1"
 # A10: bundled SQLite (no system dep). DuckDB deliberately deferred: at current
 # volumes SQLite covers the analytics reads behind the AnalyticsStore seam.
 rusqlite = { version = "0.32", features = ["bundled"] }
+# A12 (opt-in): ONNX Runtime via load-dynamic (libonnxruntime resolved at
+# runtime, not linked at build); CoreML+DirectML EP structs compile on every OS
+# and are cfg-selected at call time. `image` decodes + resizes garment photos.
+ort = { version = "2.0.0-rc.13", default-features = false, features = ["load-dynamic", "coreml", "directml", "ndarray"], optional = true }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"], optional = true }
 

@@ -99,3 +99,31 @@ a claim about live quality. Real evaluation swaps the oracle for the
 archived-interaction temporal split (fork protocol.py), same metrics and
 estimators. The report is deterministic and the golden test is the regression
 gate: a ranking change that moves the headline numbers fails CI until re-pinned.
+
+## Real image embeddings (A12, opt-in `onnx` feature)
+
+The default build carries no ONNX dependency; CI never pulls it. To enable the
+real Marqo-FashionSigLIP vision encoder (768-d, not the 512 the PRD assumed),
+build with `--features onnx`.
+
+1. ONNX Runtime dylib (load-dynamic, resolved at runtime): `pip install onnxruntime`
+   ships `libonnxruntime`; point `ORT_DYLIB_PATH` at it if it is not on the
+   default search path.
+2. Fetch the vision model and generate the golden vectors (needs network):
+   `python3 apps/engine/scripts/onnx_reference.py --download`   (int8, ~93 MB)
+   It prints the downloaded model path and writes
+   `tests/fixtures/onnx/ref_input_224.f32` + `ref_embed_224.f32`.
+3. Validate inference parity on your hardware (CoreML on the Mac). Use the SAME
+   model file the script used:
+   `MOD_ENGINE_MODEL=<that model path> \`
+   `  cargo test -p modsearch-engine --features onnx -- --nocapture inference_parity`
+   Expect `cosine > 0.999` and a `preferred_provider=CoreML` log line.
+4. Embed any photo from the CLI:
+   `MOD_ENGINE_MODEL=<model> cargo run -p modsearch-engine --features onnx -- embed-image photo.jpg`
+
+Provider selection is automatic: CoreML (macOS), DirectML (Windows), CPU
+otherwise and as fallback. Preprocessing (RGB, 224 squash bicubic, /255, [-1,1],
+CHW) is validated against the Python reference in CI without the model. To make
+ingest use ONNX vectors, set `encoder_kind = "onnx"` (and `vector_dim` 768) in
+the engine config; the fixture catalog has no photos, so it keeps the synthetic
+encoder until real catalogs arrive (A16).

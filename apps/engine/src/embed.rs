@@ -20,6 +20,21 @@ pub trait ItemEncoder {
     fn encode(&self, listing: &Listing) -> Vec<f32>;
 }
 
+/// The image-embedding seam (A12). The synthetic path above embeds a listing's
+/// attributes; this path embeds a listing's actual photo through a frozen
+/// vision encoder. Ingest uses this for any listing whose image bytes are
+/// available (real catalogs, A16) and falls back to the attribute encoder
+/// otherwise, so the fixture catalog (no photos) still ranks. The ONNX
+/// implementation lives in `embed_onnx` behind the `onnx` feature.
+#[allow(dead_code)]
+pub trait ImageEncoder {
+    /// Embedding width (Marqo-FashionSigLIP is 768-d, not the 512 the PRD
+    /// claimed; the engine's `vector_dim` follows the active encoder).
+    fn dim(&self) -> usize;
+    /// Encode raw image bytes (PNG/JPEG/WebP) into an L2-normalized vector.
+    fn encode_image(&self, bytes: &[u8]) -> anyhow::Result<Vec<f32>>;
+}
+
 pub struct SyntheticEncoder {
     pub dim: usize,
 }

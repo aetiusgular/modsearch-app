@@ -15,6 +15,8 @@
 mod config;
 mod det;
 mod embed;
+#[cfg(feature = "onnx")]
+mod embed_onnx;
 mod eval;
 mod evalrun;
 mod fixtures;
@@ -349,6 +351,23 @@ fn db_path() -> String {
 }
 
 fn main() -> anyhow::Result<()> {
+    // A12 (onnx feature): `embed-image <path>` loads the vision model from
+    // MOD_ENGINE_MODEL, logs the selected provider, and prints the L2-normalized
+    // embedding. The on-device way to sanity-check CoreML/DirectML + the model.
+    #[cfg(feature = "onnx")]
+    if std::env::args().nth(1).as_deref() == Some("embed-image") {
+        use embed::ImageEncoder;
+        let path = std::env::args().nth(2)
+            .ok_or_else(|| anyhow::anyhow!("usage: modsearch-engine embed-image <image-path>"))?;
+        let model = std::env::var("MOD_ENGINE_MODEL")
+            .map_err(|_| anyhow::anyhow!("set MOD_ENGINE_MODEL to the vision_model onnx path"))?;
+        let enc = embed_onnx::OnnxImageEncoder::new(&model)?;
+        let v = enc.encode_image(&std::fs::read(&path)?)?;
+        eprintln!("[modsearch-engine] provider={} dim={} norm=1.0", enc.provider(), v.len());
+        println!("{}", serde_json::to_string(&v)?);
+        return Ok(());
+    }
+
     // A26: offline eval harness. `eval` prints the JSON report; `eval --md` the
     // human table. Pure and store-free, so it runs anywhere.
     if std::env::args().nth(1).as_deref() == Some("eval") {
