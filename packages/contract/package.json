@@ -5,9 +5,12 @@
   "license": "GPL-3.0-only",
   "type": "module",
   "main": "src/index.ts",
-  "files": ["schema", "src"],
+  "files": [
+    "schema",
+    "src"
+  ],
   "scripts": {
-    "generate": "json-schema-to-typescript --input 'schema/*.json' --output src/generated/",
+    "generate": "json2ts -i schema/telemetry-event.schema.json -o src/generated/telemetry-event.ts && json2ts -i schema/listing-change.schema.json -o src/generated/listing-change.ts",
     "build": "tsc -p tsconfig.json"
   },
   "devDependencies": {
