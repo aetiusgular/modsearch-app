@@ -1,0 +1,297 @@
+@import "tailwindcss";
+
+/* ============================================================
+   AuraSearch design tokens
+   Thesis: a curator's gallery with a tailor's tape. Quiet cool
+   neutrals so the garments carry the color; technical mono type
+   for the measurements and prices that make it a tool.
+   Three theme states per artifact-design: bare :root = light,
+   prefers-color-scheme guarded so an explicit light choice wins,
+   and [data-theme] for the in-app toggle.
+   ============================================================ */
+:root {
+  --bg: #f4f5f6;
+  --surface: #ffffff;
+  --surface-2: #eceef0;
+  --line: #e2e5e8;
+  --line-strong: #d3d7db;
+  --ink: #191b1d;
+  --muted: #676c72;
+  --faint: #9aa0a6;
+  --accent: #2733e0;
+  --accent-ink: #ffffff;
+  --accent-soft: #e8e9fb;
+  --good: #0f7a5a;
+  --good-soft: #e2f1ea;
+  --alert: #b23a3a;
+  --alert-soft: #f6e6e5;
+  --shadow-sm: 0 1px 2px rgba(20, 22, 26, 0.06);
+  --shadow: 0 1px 2px rgba(20, 22, 26, 0.05), 0 10px 26px rgba(20, 22, 26, 0.07);
+  --radius: 10px;
+  --radius-sm: 7px;
+  --font-display: "Archivo", system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131417;
+    --surface: #1a1c20;
+    --surface-2: #212429;
+    --line: #2a2e34;
+    --line-strong: #363b42;
+    --ink: #eceef0;
+    --muted: #9aa0a7;
+    --faint: #6c727a;
+    --accent: #7a83ff;
+    --accent-ink: #0b0c10;
+    --accent-soft: #23264a;
+    --good: #40c08f;
+    --good-soft: #14312a;
+    --alert: #e27a7a;
+    --alert-soft: #38221f;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 30px rgba(0, 0, 0, 0.4);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #131417;
+  --surface: #1a1c20;
+  --surface-2: #212429;
+  --line: #2a2e34;
+  --line-strong: #363b42;
+  --ink: #eceef0;
+  --muted: #9aa0a7;
+  --faint: #6c727a;
+  --accent: #7a83ff;
+  --accent-ink: #0b0c10;
+  --accent-soft: #23264a;
+  --good: #40c08f;
+  --good-soft: #14312a;
+  --alert: #e27a7a;
+  --alert-soft: #38221f;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: var(--accent-soft); }
+
+/* Typography helpers */
+.font-display { font-family: var(--font-display); }
+.font-mono { font-family: var(--font-mono); }
+.tnum { font-variant-numeric: tabular-nums; }
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* Surfaces */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+/* Focus visibility */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, transform 0.05s ease;
+}
+.btn:hover { background: var(--surface-2); }
+.btn:active { transform: translateY(0.5px); }
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.btn-primary:hover { filter: brightness(1.05); background: var(--accent); }
+.btn-ghost { border-color: transparent; background: transparent; }
+.btn-ghost:hover { background: var(--surface-2); }
+
+/* Pills / chips / badges */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--surface);
+  white-space: nowrap;
+}
+.pill-good { color: var(--good); background: var(--good-soft); border-color: transparent; }
+.pill-alert { color: var(--alert); background: var(--alert-soft); border-color: transparent; }
+.pill-accent { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.chip:hover { background: var(--surface-2); }
+.chip-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+input[type="text"], input[type="search"], input[type="number"] {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 8px 11px;
+  width: 100%;
+}
+input::placeholder { color: var(--faint); }
+
+/* Range slider (dual handled by two inputs stacked) */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2px;
+  background: var(--line-strong);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  cursor: pointer;
+}
+
+/* Scrollbars, quiet */
+.scroll-y { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.scroll-y::-webkit-scrollbar { width: 8px; }
+.scroll-y::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise { animation: rise 0.28s ease both; }
+
+/* Card hover action buttons over the image */
+.icon-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.12s ease, transform 0.05s ease;
+}
+.icon-act:hover { background: var(--surface-2); }
+.icon-act:active { transform: translateY(0.5px); }
+
+.card-actions { opacity: 0; transition: opacity 0.14s ease; }
+article:hover .card-actions,
+article:focus-within .card-actions { opacity: 1; }
+@media (hover: none) { .card-actions { opacity: 1; } }
+
+/* Nav item */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  border: 1px solid transparent;
+  width: 100%;
+  background: transparent;
+  text-align: left;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--ink); }
+.nav-item[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.nav-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}

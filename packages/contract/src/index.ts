@@ -22,6 +22,5 @@ export type EventKind = (typeof EVENT_KINDS)[number];
 export const LISTING_KINDS = ["created", "updated", "sold", "deleted"] as const;
 export type ListingKind = (typeof LISTING_KINDS)[number];
 
-// After `pnpm generate`, re-export the generated interfaces:
-// export type { TelemetryEvent } from "./generated/telemetry-event.schema";
-// export type { ListingChange } from "./generated/listing-change.schema";
+export type { TelemetryEvent } from "./generated/telemetry-event";
+export type { ListingChange, ListingPayload } from "./generated/listing-change";
