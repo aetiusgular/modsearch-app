@@ -1,6 +1,6 @@
 {
-  "name": "com.aurasearch.engine",
-  "description": "AuraSearch on-device engine",
+  "name": "com.modsearch.engine",
+  "description": "ModSearch on-device engine",
   "path": "PLACEHOLDER_ENGINE_PATH",
   "type": "stdio",
   "allowed_origins": ["chrome-extension://PLACEHOLDER_EXTENSION_ID/"]

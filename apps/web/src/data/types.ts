@@ -1,5 +1,5 @@
 // App-facing view models. These are the shapes the UI renders. They are a
-// superset/projection of @aurasearch/contract's ListingChange payload plus the
+// superset/projection of @modsearch/contract's ListingChange payload plus the
 // recs signals the engine attaches (matchScore, matchReasons). The DataClient
 // boundary maps contract <-> view models, so swapping MockDataClient for
 // EngineDataClient (A19) never touches the components.

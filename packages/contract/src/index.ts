@@ -1,7 +1,7 @@
-// @aurasearch/contract — the wire-contract entrypoint.
+// @modsearch/contract — the wire-contract entrypoint.
 //
 // The canonical schemas live in ../schema (JSON Schema, draft 2020-12) and mirror
-// the engine's Pydantic models in aura-recs-engine/src/recs/schemas/. The engine's
+// the engine's Pydantic models in mod-recs-engine/src/recs/schemas/. The engine's
 // models are the parity reference (ADR-0001). Run `pnpm generate` to emit TypeScript
 // interfaces into ./generated from those schemas.
 

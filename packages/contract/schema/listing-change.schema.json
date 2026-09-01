@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aurasearch.dev/schema/listing-change.schema.json",
+  "$id": "https://modsearch.dev/schema/listing-change.schema.json",
   "title": "ListingChange",
-  "description": "Wire contract for a listing-catalog change. Discriminated union of 4 kinds, keyed on `kind`. The core mirrors the engine's src/recs/schemas/listings.py; the fields under the AURASEARCH EXTENSIONS comment (source, listing_url, external_id, condition_tier, color, checked_at, measurements) are AuraSearch additions beyond the engine's parity baseline, needed for universal cross-marketplace search and the measurement/color/condition filters. The forked engine must add matching optional fields when these are wired.",
+  "description": "Wire contract for a listing-catalog change. Discriminated union of 4 kinds, keyed on `kind`. The core mirrors the engine's src/recs/schemas/listings.py; the fields under the MODSEARCH EXTENSIONS comment (source, listing_url, external_id, condition_tier, color, checked_at, measurements) are ModSearch additions beyond the engine's parity baseline, needed for universal cross-marketplace search and the measurement/color/condition filters. The forked engine must add matching optional fields when these are wired.",
   "$defs": {
     "measurements": {
       "type": "object",
@@ -44,18 +44,18 @@
         "seller_rating": { "type": ["number", "null"], "minimum": 0.0, "maximum": 5.0, "default": null },
         "listed_at": { "type": "string", "format": "date-time" },
 
-        "source": { "type": "string", "description": "AURASEARCH EXTENSION. Marketplace/boutique id: ebay, shopify:<store>, grailed, agora, ..." },
-        "listing_url": { "type": "string", "format": "uri", "description": "AURASEARCH EXTENSION. Canonical URL to the item." },
-        "external_id": { "type": "string", "description": "AURASEARCH EXTENSION. The source's own id for the item." },
-        "currency": { "type": "string", "description": "AURASEARCH EXTENSION. ISO-4217 code for `price` (default USD).", "default": "USD" },
-        "color": { "type": ["string", "null"], "default": null, "description": "AURASEARCH EXTENSION. Primary color, normalized for the color filter." },
+        "source": { "type": "string", "description": "MODSEARCH EXTENSION. Marketplace/boutique id: ebay, shopify:<store>, grailed, agora, ..." },
+        "listing_url": { "type": "string", "format": "uri", "description": "MODSEARCH EXTENSION. Canonical URL to the item." },
+        "external_id": { "type": "string", "description": "MODSEARCH EXTENSION. The source's own id for the item." },
+        "currency": { "type": "string", "description": "MODSEARCH EXTENSION. ISO-4217 code for `price` (default USD).", "default": "USD" },
+        "color": { "type": ["string", "null"], "default": null, "description": "MODSEARCH EXTENSION. Primary color, normalized for the color filter." },
         "condition_tier": {
           "type": ["string", "null"],
           "enum": ["new", "like_new", "excellent", "good", "fair", "poor", null],
           "default": null,
-          "description": "AURASEARCH EXTENSION. Normalized condition scale for cross-marketplace comparison."
+          "description": "MODSEARCH EXTENSION. Normalized condition scale for cross-marketplace comparison."
         },
-        "checked_at": { "type": ["string", "null"], "format": "date-time", "default": null, "description": "AURASEARCH EXTENSION. When availability/price was last verified. Drives staleness handling; secondhand items are quantity-one and vanish fast." },
+        "checked_at": { "type": ["string", "null"], "format": "date-time", "default": null, "description": "MODSEARCH EXTENSION. When availability/price was last verified. Drives staleness handling; secondhand items are quantity-one and vanish fast." },
         "measurements": { "$ref": "#/$defs/measurements" }
       },
       "required": ["brand", "category", "price", "listed_at"]

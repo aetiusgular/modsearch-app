@@ -1,4 +1,4 @@
-//! AuraSearch headless engine service.
+//! ModSearch headless engine service.
 //! A9: framed native-messaging loop + oneshot mode. A28-A31: determinism
 //! kernel (seeds, provenance, goldens, seams). A10: SQLite persistence.
 //! A13 port: real scoring, episodes, and dual-window dual-space taste.
@@ -338,13 +338,13 @@ fn dispatch(
 }
 
 fn db_path() -> String {
-    if let Ok(p) = std::env::var("AURA_ENGINE_DB") {
+    if let Ok(p) = std::env::var("MOD_ENGINE_DB") {
         return p;
     }
     let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE"));
     match home {
-        Ok(h) => format!("{h}/.aurasearch/engine.db"),
-        Err(_) => "aurasearch-engine.db".to_string(),
+        Ok(h) => format!("{h}/.modsearch/engine.db"),
+        Err(_) => "modsearch-engine.db".to_string(),
     }
 }
 

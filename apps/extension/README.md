@@ -1,6 +1,6 @@
-# @aurasearch/extension
+# @modsearch/extension
 
-The AuraSearch browser extension. One TypeScript core, three builds (ADR-0001, PRD Section 9):
+The ModSearch browser extension. One TypeScript core, three builds (ADR-0001, PRD Section 9):
 
 - Chromium (Chrome + Edge): MV3 service worker. It is ephemeral, so dwell timing lives in the
   content script, not the worker. The worker is a stateless relay to the local desktop app over

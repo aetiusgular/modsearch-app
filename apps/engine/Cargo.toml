@@ -1,12 +1,12 @@
 [package]
-name = "aurasearch-engine"
+name = "modsearch-engine"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
-description = "AuraSearch headless on-device engine service. Framed native messaging; deterministic replayable serving (A28-A31); SQLite persistence (A10); ported scoring/episodes/dual-window taste and fused MMR ranking (A11/A13) over a synthetic encoder behind the A12 ONNX seam."
+description = "ModSearch headless on-device engine service. Framed native messaging; deterministic replayable serving (A28-A31); SQLite persistence (A10); ported scoring/episodes/dual-window taste and fused MMR ranking (A11/A13) over a synthetic encoder behind the A12 ONNX seam."
 
 [[bin]]
-name = "aurasearch-engine"
+name = "modsearch-engine"
 path = "src/main.rs"
 
 [dependencies]

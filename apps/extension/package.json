@@ -1,10 +1,10 @@
 {
-  "name": "@aurasearch/extension",
+  "name": "@modsearch/extension",
   "version": "0.0.1",
   "private": true,
-  "description": "AuraSearch browser extension. One TS core, three builds (Chromium, Firefox, Safari-as-app).",
+  "description": "ModSearch browser extension. One TS core, three builds (Chromium, Firefox, Safari-as-app).",
   "license": "GPL-3.0-only",
-  "dependencies": { "@aurasearch/contract": "workspace:*" },
+  "dependencies": { "@modsearch/contract": "workspace:*" },
   "scripts": {
     "build": "echo \"TODO: bundle Chromium + Firefox builds; Safari is a separate Xcode app\"",
     "lint": "echo \"TODO: eslint\""

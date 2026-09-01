@@ -279,7 +279,7 @@ pub fn run(cfg: &EngineConfig) -> EvalReport {
 pub fn render_markdown(rep: &EvalReport) -> String {
     let mut s = String::new();
     s.push_str(&format!(
-        "AuraSearch offline eval  (users={}, k={}, config={})\n\n",
+        "ModSearch offline eval  (users={}, k={}, config={})\n\n",
         rep.n_users, rep.k, rep.config_hash
     ));
     s.push_str("| scorer | recall@10 | ndcg@10 | mrr | map |\n|---|---|---|---|---|\n");

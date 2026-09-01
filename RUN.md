@@ -1,4 +1,4 @@
-# Running AuraSearch locally (A9 + A14 + A19)
+# Running ModSearch locally (A9 + A14 + A19)
 
 This wires the app to the on-device engine over native messaging. No localhost:
 the app loads from the extension, the engine is a native process.
@@ -9,9 +9,9 @@ the app loads from the extension, the engine is a native process.
 
 ## 1. Build the engine
 ```
-cargo build --release -p aurasearch-engine
+cargo build --release -p modsearch-engine
 ```
-Binary: `target/release/aurasearch-engine` (note its absolute path).
+Binary: `target/release/modsearch-engine` (note its absolute path).
 
 ## 2. Build the app and stage it into the extension
 ```
@@ -26,12 +26,12 @@ This builds `apps/web` and copies the result to `apps/extension/app/`.
 
 ## 4. Register the native host
 ```
-apps/extension/host/install-host.sh "$(pwd)/target/release/aurasearch-engine" <EXTENSION_ID>
+apps/extension/host/install-host.sh "$(pwd)/target/release/modsearch-engine" <EXTENSION_ID>
 ```
 Restart Chrome so it picks up the host.
 
 ## 5. Open it
-Click the AuraSearch toolbar icon. The full-page app opens and now talks to the
+Click the ModSearch toolbar icon. The full-page app opens and now talks to the
 engine (real handlers over the stub catalog). Append `?mock` to the URL to force
 the mock data client instead.
 
@@ -46,7 +46,7 @@ localhost.
 ## What is stubbed
 The engine (A9) serves an in-memory synthetic catalog. A10 adds SQLite/DuckDB, A11
 the vector index + graph, A12 ONNX embedding, A13 the taste model, A16 real ingested
-boutiques. See AURASEARCH_BUILD_PROMPTS.md.
+boutiques. See MODSEARCH_BUILD_PROMPTS.md.
 
 ## Replaying a feed (determinism kernel, A28-A31)
 
@@ -58,18 +58,18 @@ propensities. To reproduce a feed exactly, send the same request with the
 
 ```
 echo '{"type":"getFeed","query":{},"hidden":[],"userId":"local","dayEpoch":20000}' \
-  | ./target/release/aurasearch-engine oneshot
+  | ./target/release/modsearch-engine oneshot
 ```
 
 Same day, same state: byte-identical output, any machine, any run. Exploration
 reseeds daily per user (seeded RNG, no wall-clock in the ranked path). Ranking
-constants live in EngineConfig; point `AURA_ENGINE_CONFIG` at a JSON file to
+constants live in EngineConfig; point `MOD_ENGINE_CONFIG` at a JSON file to
 override, and the response's `configHash` changes with it.
 
 ## Persistence and learning (A10 + A13/A11 port)
 
-The engine now persists to SQLite. Default path `~/.aurasearch/engine.db`;
-override with `AURA_ENGINE_DB=/path/to.db` (tests and replay harnesses should
+The engine now persists to SQLite. Default path `~/.modsearch/engine.db`;
+override with `MOD_ENGINE_DB=/path/to.db` (tests and replay harnesses should
 always set it). Like/Save/Hide from the app update the dual-window,
 dual-space taste profile (the fork's exact math, golden-tested); telemetry
 batches fold into episodes and flush on impression-end or the 60s idle
@@ -80,7 +80,7 @@ the live model. Delete the DB file to reset to cold start.
 
 ## Offline eval harness (A26)
 
-`cargo run -p aurasearch-engine -- eval` prints a JSON evaluation report;
+`cargo run -p modsearch-engine -- eval` prints a JSON evaluation report;
 add `--md` for the human table. Pure and store-free, so it runs anywhere.
 
 It reports three things over the fixture catalog:

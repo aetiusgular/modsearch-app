@@ -1,7 +1,7 @@
 {
-  "name": "@aurasearch/contract",
+  "name": "@modsearch/contract",
   "version": "0.1.0",
-  "description": "AuraSearch wire contract (telemetry events, listing changes) as JSON Schema + generated TS types. Single source of truth, mirrors the engine's Pydantic models.",
+  "description": "ModSearch wire contract (telemetry events, listing changes) as JSON Schema + generated TS types. Single source of truth, mirrors the engine's Pydantic models.",
   "license": "GPL-3.0-only",
   "type": "module",
   "main": "src/index.ts",

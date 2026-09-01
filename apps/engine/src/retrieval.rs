@@ -13,7 +13,7 @@ use crate::config::EngineConfig;
 use crate::model::Listing;
 use std::collections::{BTreeMap, BTreeSet};
 
-// ---- entities (graph/entities.py, adapted to the AuraSearch listing shape) ----
+// ---- entities (graph/entities.py, adapted to the ModSearch listing shape) ----
 
 /// `("brand", " Maison Margiela ") -> "brand:maison_margiela"`.
 pub fn normalize_attr(namespace: &str, value: &str) -> Option<String> {
@@ -26,7 +26,7 @@ pub fn normalize_attr(namespace: &str, value: &str) -> Option<String> {
 }
 
 /// Namespaced attribute tokens for one listing. The fork's namespaces are
-/// (brand, era, designer, material); the AuraSearch catalog carries brand and
+/// (brand, era, designer, material); the ModSearch catalog carries brand and
 /// era plus category/subcategory/color/condition/aesthetic, so those extend
 /// the entity set (same normalization, same Jaccard semantics).
 pub fn attribute_set(l: &Listing) -> BTreeSet<String> {

@@ -1,10 +1,10 @@
-// AuraSearch extension background service worker (A14).
+// ModSearch extension background service worker (A14).
 // Stateless relay between the full-page app (the SPA running as an extension page)
 // and the native engine host. The MV3 worker is ephemeral, but the native port and
 // in-flight messages keep it alive while a request is outstanding. No dwell/state
 // lives here (that is the content script, A15).
 
-const HOST = "com.aurasearch.engine";
+const HOST = "com.modsearch.engine";
 let port = null;
 const pending = new Map();
 

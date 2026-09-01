@@ -7,11 +7,11 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 fn oneshot(request: &str, tag: &str) -> Vec<u8> {
-    let db = std::env::temp_dir().join(format!("aura-int-{}-{}.db", std::process::id(), tag));
+    let db = std::env::temp_dir().join(format!("mod-int-{}-{}.db", std::process::id(), tag));
     let _ = std::fs::remove_file(&db);
-    let mut child = Command::new(env!("CARGO_BIN_EXE_aurasearch-engine"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_modsearch-engine"))
         .arg("oneshot")
-        .env("AURA_ENGINE_DB", &db)
+        .env("MOD_ENGINE_DB", &db)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())

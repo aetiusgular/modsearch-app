@@ -115,11 +115,11 @@ impl EngineConfig {
         (self.episode_idle_flush_s * 1000.0) as i64
     }
 
-    /// Load from the JSON file at $AURA_ENGINE_CONFIG, else defaults.
+    /// Load from the JSON file at $MOD_ENGINE_CONFIG, else defaults.
     /// A bad file is a hard error: a silently ignored config would serve
     /// rankings nobody can attribute.
     pub fn load() -> anyhow::Result<Self> {
-        match std::env::var("AURA_ENGINE_CONFIG") {
+        match std::env::var("MOD_ENGINE_CONFIG") {
             Ok(path) => {
                 let text = std::fs::read_to_string(&path)?;
                 Ok(serde_json::from_str(&text)?)

@@ -479,7 +479,7 @@ mod tests {
 
     #[test]
     fn data_survives_reopen() {
-        let path = std::env::temp_dir().join(format!("aura-test-{}.db", std::process::id()));
+        let path = std::env::temp_dir().join(format!("mod-test-{}.db", std::process::id()));
         let p = path.to_str().unwrap().to_string();
         let _ = std::fs::remove_file(&p);
         {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aurasearch.dev/schema/telemetry-event.schema.json",
+  "$id": "https://modsearch.dev/schema/telemetry-event.schema.json",
   "title": "TelemetryEvent",
   "description": "Wire contract v1 for a single telemetry event. Discriminated union of 12 event kinds, keyed on `type`. Mirrors the engine's src/recs/schemas/events.py exactly; the engine's Pydantic models are the parity reference. Kept in sync via ADR-0001.",
   "$defs": {

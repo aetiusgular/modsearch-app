@@ -1,8 +1,8 @@
-# aurasearch-app
+# modsearch-app
 
-The public client monorepo for AuraSearch, a local-first universal fashion search tool. Holds the browser extension and the desktop client, plus the shared wire contract they both depend on. Licensed GPL-3.0.
+The public client monorepo for ModSearch, a local-first universal fashion search tool. Holds the browser extension and the desktop client, plus the shared wire contract they both depend on. Licensed GPL-3.0.
 
-AuraSearch is a separate product from Agora (a Grailed-like second-hand marketplace). It piggybacks on Agora by reusing Agora's recommendation engine as a fork (`aura-recs-engine`), and may index Agora as one of its search sources. See `AURASEARCH_PRD_v3.md` for the full plan and `aura-recs-engine/docs/adr/0001-repository-architecture.md` for why the project is split into three repos.
+ModSearch is a separate product from Agora (a Grailed-like second-hand marketplace). It piggybacks on Agora by reusing Agora's recommendation engine as a fork (`mod-recs-engine`), and may index Agora as one of its search sources. See `MODSEARCH_PRD_v3.md` for the full plan and `mod-recs-engine/docs/adr/0001-repository-architecture.md` for why the project is split into three repos.
 
 ## Layout
 
@@ -20,9 +20,9 @@ This is a polyglot monorepo. TypeScript is managed with a pnpm workspace (`pnpm-
 
 In this repo (open, GPL-3.0): the extension, the desktop client, the shared contract. All client-side, all shippable to users, all clean of secrets.
 
-Not in this repo: the eBay OAuth proxy, affiliate service, adapter registry, cloud training, and any passive-capture adapters. Those live in the private `aurasearch-server` repo because they hold secrets and carry the project's legal exposure. Keeping them out is what lets this repo be open.
+Not in this repo: the eBay OAuth proxy, affiliate service, adapter registry, cloud training, and any passive-capture adapters. Those live in the private `modsearch-server` repo because they hold secrets and carry the project's legal exposure. Keeping them out is what lets this repo be open.
 
-The recommendation engine lives in its own repo (`aura-recs-engine`, Apache-2.0) and is consumed here as a pinned dependency once the local-first port begins.
+The recommendation engine lives in its own repo (`mod-recs-engine`, Apache-2.0) and is consumed here as a pinned dependency once the local-first port begins.
 
 ## Status
 

@@ -36,7 +36,7 @@ export function Sidebar() {
         <span style={{ width: 22, height: 22, borderRadius: 6, background: "var(--accent)", display: "grid", placeItems: "center", color: "var(--accent-ink)" }}>
           <Icon.ForYou size={13} />
         </span>
-        <span className="font-display" style={{ fontWeight: 800, fontSize: 17, letterSpacing: "-.02em" }}>AuraSearch</span>
+        <span className="font-display" style={{ fontWeight: 800, fontSize: 17, letterSpacing: "-.02em" }}>ModSearch</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
         {NAV.map((n) => (

@@ -67,7 +67,7 @@ mod tests {
         // The empty-string hash is the FNV offset basis by definition. If this
         // moves, every seed, config hash, and golden in the engine moves too.
         assert_eq!(fnv1a(b""), 0xcbf2_9ce4_8422_2325);
-        assert_ne!(fnv1a(b"aura"), fnv1a(b"arua"));
+        assert_ne!(fnv1a(b"mod"), fnv1a(b"dom"));
     }
 
     #[test]

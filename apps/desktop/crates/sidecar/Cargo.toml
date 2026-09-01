@@ -1,16 +1,16 @@
 [package]
-name = "aurasearch-sidecar"
+name = "modsearch-sidecar"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
-description = "AuraSearch on-device ML sidecar: ONNX embeddings, embedded vector index, graph, local head training."
+description = "ModSearch on-device ML sidecar: ONNX embeddings, embedded vector index, graph, local head training."
 
 [lib]
-name = "aurasearch_sidecar"
+name = "modsearch_sidecar"
 path = "src/lib.rs"
 
 [dependencies]
-# Wired during the port (aura-recs-engine/ADAPTATION.md):
+# Wired during the port (mod-recs-engine/ADAPTATION.md):
 # ort = "2"                                   # ONNX Runtime, CoreML (macOS) / DirectML (Windows) EPs
 # usearch = "2"                               # embedded HNSW vector index (Apache-2.0)
 # serde = { version = "1", features = ["derive"] }
