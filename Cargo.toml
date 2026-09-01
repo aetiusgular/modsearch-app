@@ -1,5 +1,11 @@
-# Rust side of the monorepo (the desktop client's sidecar and, later, the Tauri crate).
-# Native Cargo workspace; no Bazel/Nx (ADR-0001).
+# Rust side of the monorepo. Native Cargo workspace; no Bazel/Nx (ADR-0001).
+# apps/engine = the headless engine service (ADR-0002). apps/desktop/crates/sidecar
+# is the future on-device ML lib the engine will use (A11-A13).
 [workspace]
 resolver = "2"
-members = ["apps/desktop/crates/sidecar"]
+members = ["apps/engine", "apps/desktop/crates/sidecar"]
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true

@@ -1,0 +1,16 @@
+[package]
+name = "aurasearch-engine"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+description = "AuraSearch headless on-device engine service. Speaks framed native messaging; serves feed/search/detail/saved/drops. A9 stub over an in-memory catalog; A10+ add SQLite/DuckDB, embedded vector index, graph, and taste."
+
+[[bin]]
+name = "aurasearch-engine"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+

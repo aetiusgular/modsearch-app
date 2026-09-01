@@ -5,3 +5,4 @@ target/
 packages/contract/src/generated/
 .env
 .DS_Store
+apps/extension/app/

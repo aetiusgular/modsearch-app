@@ -3,9 +3,12 @@
   "name": "AuraSearch",
   "version": "0.0.1",
   "description": "Local-first universal fashion search. Personalizes on your device; your data stays local.",
-  "permissions": ["storage", "alarms", "nativeMessaging"],
+  "permissions": ["storage", "alarms", "nativeMessaging", "sidePanel", "tabs"],
   "host_permissions": [],
-  "background": { "service_worker": "background/service-worker.js", "type": "module" },
-  "content_scripts": [],
-  "action": { "default_title": "AuraSearch" }
+  "background": { "service_worker": "src/background/service-worker.js" },
+  "action": { "default_title": "Open AuraSearch" },
+  "side_panel": { "default_path": "app/index.html" },
+  "web_accessible_resources": [
+    { "resources": ["app/*"], "matches": ["<all_urls>"] }
+  ]
 }

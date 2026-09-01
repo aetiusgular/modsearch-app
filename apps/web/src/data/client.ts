@@ -119,4 +119,16 @@ export class MockDataClient implements DataClient {
   }
 }
 
-export const client: DataClient = new MockDataClient();
+// Client selection (A19): when the SPA runs inside the extension (chrome.runtime
+// available), talk to the real engine; otherwise (standalone preview, dev) use the
+// mock. Append ?mock to the URL to force the mock even inside the extension.
+import { EngineDataClient } from "./engineClient";
+
+function makeClient(): DataClient {
+  const cr: any = (globalThis as any).chrome;
+  const inExtension = !!(cr && cr.runtime && cr.runtime.id);
+  const forceMock = typeof location !== "undefined" && location.search.includes("mock");
+  return inExtension && !forceMock ? new EngineDataClient() : new MockDataClient();
+}
+
+export const client: DataClient = makeClient();
