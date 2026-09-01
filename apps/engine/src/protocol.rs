@@ -34,6 +34,10 @@ pub fn write_message<W: Write>(w: &mut W, payload: &[u8]) -> io::Result<()> {
 
 /// The request envelope. `type` selects the handler; the rest are optional fields
 /// the various requests use. Kept flat so the JS side builds a plain object.
+///
+/// A29: `userId` and `dayEpoch` scope the deterministic seed. Both optional;
+/// the engine defaults them to "local" and today. A logged (userId, dayEpoch,
+/// query, state) replays to the exact same ranked response.
 #[derive(Deserialize, Default)]
 pub struct RawRequest {
     pub id: Option<u64>,
@@ -51,4 +55,13 @@ pub struct RawRequest {
     pub feedback_kind: Option<String>,
     #[serde(default)]
     pub events: Vec<serde_json::Value>,
+    #[serde(default, rename = "userId")]
+    pub user_id: Option<String>,
+    #[serde(default, rename = "dayEpoch")]
+    pub day_epoch: Option<u64>,
+    /// Milliseconds since epoch for state-changing requests (feedback without
+    /// per-event client_ts). Optional; the engine defaults it to now. Pass it
+    /// explicitly to replay a session deterministically.
+    #[serde(default)]
+    pub ts: Option<i64>,
 }

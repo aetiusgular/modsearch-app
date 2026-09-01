@@ -3,7 +3,7 @@ name = "aurasearch-engine"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
-description = "AuraSearch headless on-device engine service. Speaks framed native messaging; serves feed/search/detail/saved/drops. A9 stub over an in-memory catalog; A10+ add SQLite/DuckDB, embedded vector index, graph, and taste."
+description = "AuraSearch headless on-device engine service. Framed native messaging; deterministic replayable serving (A28-A31); SQLite persistence (A10); ported scoring/episodes/dual-window taste and fused MMR ranking (A11/A13) over a synthetic encoder behind the A12 ONNX seam."
 
 [[bin]]
 name = "aurasearch-engine"
@@ -13,4 +13,7 @@ path = "src/main.rs"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"
+# A10: bundled SQLite (no system dep). DuckDB deliberately deferred: at current
+# volumes SQLite covers the analytics reads behind the AnalyticsStore seam.
+rusqlite = { version = "0.32", features = ["bundled"] }
 
