@@ -299,6 +299,166 @@ pub fn render_markdown(rep: &EvalReport) -> String {
     s
 }
 
+// ---- A16b: real-vs-synthetic fusion ablation (the difference-of-differences) ----
+
+#[derive(Serialize)]
+pub struct FusionLift {
+    /// full minus taste: what graph-Jaccard fusion adds over pure taste-cosine.
+    pub recall_delta: f64,
+    pub ndcg_delta: f64,
+    pub map_delta: f64,
+}
+
+#[derive(Serialize)]
+pub struct EncoderResult {
+    pub encoder: String,
+    pub dim: usize,
+    pub ablation: Vec<MetricRow>,
+    pub fusion_lift: FusionLift,
+}
+
+#[derive(Serialize)]
+pub struct RealEvalReport {
+    pub catalog: String,
+    pub n_items: usize,
+    pub n_users: usize,
+    pub k: usize,
+    pub config_hash: String,
+    pub real: EncoderResult,
+    pub synthetic: EncoderResult,
+    pub verdict: String,
+    pub note: String,
+}
+
+/// Run the brand-oracle ladder over one index and summarize its fusion lift.
+fn ablation_for(
+    catalog: &[Listing],
+    index: &CatalogIndex,
+    cfg: &EngineConfig,
+    encoder: &str,
+    dim: usize,
+) -> EncoderResult {
+    let cases = build_cases(catalog, index, cfg);
+    let mut rows = Vec::new();
+    for scorer in ["random", "popularity", "taste", "full"] {
+        let (mut recalls, mut ndcgs, mut mrrs, mut maps) = (vec![], vec![], vec![], vec![]);
+        for case in &cases {
+            let ranked = score_ranked(scorer, case, catalog, index, cfg);
+            recalls.push(recall_at_k(&ranked, &case.positives, K));
+            ndcgs.push(ndcg_at_k(&ranked, &case.positives, K));
+            mrrs.push(mrr(&ranked, &case.positives));
+            maps.push(average_precision(&ranked, &case.positives));
+        }
+        rows.push(MetricRow {
+            scorer: scorer.to_string(),
+            recall_at_10: stat_for(scorer, "recall", &recalls),
+            ndcg_at_10: stat_for(scorer, "ndcg", &ndcgs),
+            mrr: stat_for(scorer, "mrr", &mrrs),
+            map: stat_for(scorer, "map", &maps),
+        });
+    }
+    let get = |name: &str| rows.iter().find(|r| r.scorer == name).expect("scorer present");
+    let (t, f) = (get("taste"), get("full"));
+    let fusion_lift = FusionLift {
+        recall_delta: f.recall_at_10.mean - t.recall_at_10.mean,
+        ndcg_delta: f.ndcg_at_10.mean - t.ndcg_at_10.mean,
+        map_delta: f.map.mean - t.map.mean,
+    };
+    EncoderResult { encoder: encoder.to_string(), dim, ablation: rows, fusion_lift }
+}
+
+/// A16b: the difference-of-differences. Run the identical brand-oracle ablation
+/// over the real 768-d visual vectors and the synthetic attribute vectors on the
+/// SAME catalog. The oracle, the pools, and the Jaccard attribute sets are
+/// identical across the two; the only variable is the vector space. So the change
+/// in fusion's lift between them isolates one thing: whether the encoder's vector
+/// already carries the attribute signal (synthetic, where Jaccard is redundant)
+/// or not (real visual, where Jaccard is orthogonal). That is exactly the A26
+/// hypothesis, and the oracle cannot manufacture the difference.
+pub fn run_real(cfg: &EngineConfig, catalog: &[Listing], real_vectors: Vec<Vec<f32>>) -> RealEvalReport {
+    let real_dim = real_vectors.first().map_or(0, |v| v.len());
+    let real_index = CatalogIndex::build_with_vectors(catalog, real_vectors);
+    let synth_encoder = SyntheticEncoder { dim: cfg.vector_dim };
+    let synth_index = CatalogIndex::build(catalog, &synth_encoder);
+
+    let real = ablation_for(catalog, &real_index, cfg, "onnx-visual", real_dim);
+    let synthetic = ablation_for(catalog, &synth_index, cfg, "synthetic-attr", cfg.vector_dim);
+
+    let mut brand_counts: BTreeMap<String, usize> = BTreeMap::new();
+    for l in catalog {
+        *brand_counts.entry(l.brand.clone()).or_default() += 1;
+    }
+    let n_users = brand_counts.values().filter(|&&c| c >= MIN_BRAND_ITEMS).count();
+    let catalog_name = catalog.first().map_or_else(String::new, |l| l.source.clone());
+
+    let rd = real.fusion_lift.recall_delta;
+    let sd = synthetic.fusion_lift.recall_delta;
+    let diff = rd - sd;
+    let verdict = if diff > 0.01 {
+        format!(
+            "Fusion lifts recall@{K} by {rd:+.3} on the real visual encoder vs {sd:+.3} on the \
+             synthetic ({diff:+.3} difference). Graph-Jaccard adds signal the visual vector does \
+             not carry, exactly where the A26 hypothesis predicted it would."
+        )
+    } else if diff < -0.01 {
+        format!(
+            "Fusion helps less on the real encoder ({rd:+.3}) than the synthetic ({sd:+.3}); the \
+             A26 hypothesis does not hold on this catalog and oracle."
+        )
+    } else {
+        format!(
+            "No material difference in fusion lift between encoders (real {rd:+.3}, synthetic \
+             {sd:+.3}). On this catalog and brand oracle, the visual vector and the attribute \
+             vector leave the same room for Jaccard."
+        )
+    };
+
+    RealEvalReport {
+        catalog: catalog_name,
+        n_items: catalog.len(),
+        n_users,
+        k: K,
+        config_hash: cfg.config_hash(),
+        real,
+        synthetic,
+        verdict,
+        note: "Brand-oracle simulated preference (relevance = held-out same-brand items), the same \
+               protocol A26 uses. The ABSOLUTE fusion lift on the real encoder partly reflects that \
+               brand is one of the Jaccard attributes, so it boosts same-brand items directly; the \
+               honest signal is the DIFFERENCE between the two encoders, which share that identical \
+               Jaccard term and oracle and differ only in whether the vector already encodes \
+               attributes. Still a simulated protocol, not live logs: swap the oracle for archived \
+               interactions for a live-quality claim."
+            .to_string(),
+    }
+}
+
+/// Markdown for `eval-real --md`: both ladders, the fusion lifts, and the verdict.
+pub fn render_markdown_real(rep: &RealEvalReport) -> String {
+    let mut s = String::new();
+    s.push_str(&format!(
+        "ModSearch real-catalog eval  (catalog={}, items={}, users={}, k={}, config={})\n\n",
+        rep.catalog, rep.n_items, rep.n_users, rep.k, rep.config_hash
+    ));
+    for enc in [&rep.real, &rep.synthetic] {
+        s.push_str(&format!("### {} encoder (dim {})\n\n", enc.encoder, enc.dim));
+        s.push_str("| scorer | recall@10 | ndcg@10 | mrr | map |\n|---|---|---|---|---|\n");
+        for r in &enc.ablation {
+            s.push_str(&format!(
+                "| {} | {:.3} [{:.3},{:.3}] | {:.3} | {:.3} | {:.3} |\n",
+                r.scorer, r.recall_at_10.mean, r.recall_at_10.ci_low, r.recall_at_10.ci_high,
+                r.ndcg_at_10.mean, r.mrr.mean, r.map.mean
+            ));
+        }
+        s.push_str(&format!(
+            "\nfusion lift (full - taste): recall {:+.3}, ndcg {:+.3}, map {:+.3}\n\n",
+            enc.fusion_lift.recall_delta, enc.fusion_lift.ndcg_delta, enc.fusion_lift.map_delta
+        ));
+    }
+    s.push_str(&format!("VERDICT: {}\n", rep.verdict));
+    s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -365,6 +525,27 @@ mod tests {
         let a = serde_json::to_string(&run(&cfg)).unwrap();
         let b = serde_json::to_string(&run(&cfg)).unwrap();
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn run_real_is_symmetric_and_deterministic() {
+        // Feed the synthetic encoding of the fixtures in as the "real" vectors.
+        // Then both indexes are identical, so both ablations and both fusion
+        // lifts must match exactly (difference ~0): a symmetry sanity that the
+        // difference-of-differences is measuring the encoder, nothing else.
+        let cfg = EngineConfig::default();
+        let catalog = crate::fixtures::catalog();
+        let enc = SyntheticEncoder { dim: cfg.vector_dim };
+        let real_vecs: Vec<Vec<f32>> = catalog.iter().map(|l| enc.encode(l)).collect();
+        let a = run_real(&cfg, &catalog, real_vecs.clone());
+        let b = run_real(&cfg, &catalog, real_vecs);
+        assert_eq!(serde_json::to_string(&a).unwrap(), serde_json::to_string(&b).unwrap());
+        assert!(a.n_users >= 4, "need several brand cases, got {}", a.n_users);
+        assert!(
+            (a.real.fusion_lift.recall_delta - a.synthetic.fusion_lift.recall_delta).abs() < 1e-9,
+            "identical vectors must give identical fusion lift"
+        );
+        assert!(render_markdown_real(&a).contains("VERDICT"));
     }
 
     #[test]

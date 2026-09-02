@@ -215,7 +215,9 @@ impl Store {
     // ---- item vectors (A16) ----
 
     /// Store one listing's image embedding (upsert). Rejects non-finite values
-    /// through the same codec guard the profile vectors use.
+    /// through the same codec guard the profile vectors use. Only the `ingest`
+    /// feature writes vectors, so the default binary never calls this.
+    #[cfg_attr(not(feature = "ingest"), allow(dead_code))]
     pub fn put_item_vector(&self, id: &str, v: &[f32]) -> Result<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO item_vectors (id, dim, vec) VALUES (?1, ?2, ?3)",

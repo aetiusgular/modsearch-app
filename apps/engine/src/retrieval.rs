@@ -231,6 +231,20 @@ pub struct CatalogIndex {
 impl CatalogIndex {
     pub fn build(catalog: &[Listing], encoder: &dyn crate::embed::ItemEncoder) -> Self {
         let vectors = catalog.iter().map(|l| encoder.encode(l)).collect();
+        Self::assemble(catalog, vectors)
+    }
+
+    /// Build from precomputed vectors (A16: real ONNX image vectors loaded from
+    /// the store) instead of running the encoder. The attribute sets, listed
+    /// days, and id index are derived from the listings exactly as in `build`,
+    /// so a real-vector index and a synthetic-vector index over the same catalog
+    /// differ only in the vector space, which is what the A16b ablation isolates.
+    pub fn build_with_vectors(catalog: &[Listing], vectors: Vec<Vec<f32>>) -> Self {
+        assert_eq!(vectors.len(), catalog.len(), "one vector per listing");
+        Self::assemble(catalog, vectors)
+    }
+
+    fn assemble(catalog: &[Listing], vectors: Vec<Vec<f32>>) -> Self {
         let attrs = catalog.iter().map(attribute_set).collect();
         let listed_days = catalog.iter().map(|l| listed_day(&l.listed_at)).collect();
         let by_id = catalog.iter().enumerate().map(|(i, l)| (l.id.clone(), i)).collect();

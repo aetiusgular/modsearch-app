@@ -383,6 +383,33 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // A16b: eval on the real ingested catalog. Loads MOD_ENGINE_DB (the boutique
+    // DB), reads each listing's stored image vector, and runs the real-vs-
+    // synthetic fusion ablation (the difference-of-differences). Pure store reads
+    // plus the synthetic re-encode, so no onnx/ingest build or network is needed.
+    if std::env::args().nth(1).as_deref() == Some("eval-real") {
+        let cfg = config::EngineConfig::load()?;
+        let st = Store::open(&db_path())?;
+        let catalog = st.load_catalog()?;
+        if catalog.is_empty() {
+            anyhow::bail!("no catalog in {}; run `ingest-shopify <url>` first", db_path());
+        }
+        let real_vectors: Vec<Vec<f32>> = catalog
+            .iter()
+            .map(|l| {
+                st.get_item_vector(&l.id)?
+                    .ok_or_else(|| anyhow::anyhow!("listing {} has no stored vector; re-ingest", l.id))
+            })
+            .collect::<anyhow::Result<_>>()?;
+        let report = evalrun::run_real(&cfg, &catalog, real_vectors);
+        if std::env::args().any(|a| a == "--md") {
+            print!("{}", evalrun::render_markdown_real(&report));
+        } else {
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        return Ok(());
+    }
+
     // A16 (ingest feature): `ingest-shopify <url>` pulls a boutique's
     // products.json, embeds each photo on the CPU encoder, and persists listing
     // + vector into the store at MOD_ENGINE_DB (use a dedicated DB to keep the
