@@ -31,7 +31,7 @@ mod scoring;
 mod store;
 mod taste;
 
-use embed::SyntheticEncoder;
+use embed::{ItemEncoder, SyntheticEncoder};
 use handlers::{FeedEnv, TasteState};
 use model::Listing;
 use protocol::RawRequest;
@@ -341,6 +341,124 @@ fn dispatch(
     }
 }
 
+/// Decide the serving catalog + index. With a real ingested catalog present
+/// (item_vectors non-empty), serve it on the stored image vectors and fusion,
+/// and set vector_dim + encoder_kind to match so provenance is accurate. With an
+/// empty store, fall back to the synthetic fixture catalog (dev/default), which
+/// keeps every existing test and the local-dev flow unchanged.
+fn build_serving_index(
+    st: &Store,
+    cfg: &mut config::EngineConfig,
+) -> anyhow::Result<(Vec<Listing>, CatalogIndex)> {
+    let stored = st.all_item_vectors()?;
+    if stored.is_empty() {
+        st.seed_catalog(&fixtures::catalog())?;
+        let catalog = st.load_catalog()?;
+        let index = CatalogIndex::build(&catalog, &SyntheticEncoder { dim: cfg.vector_dim });
+        Ok((catalog, index))
+    } else {
+        let catalog = st.load_catalog()?;
+        let dim = stored.values().next().map_or(cfg.vector_dim, |v| v.len());
+        cfg.vector_dim = dim;
+        cfg.encoder_kind = "onnx".to_string();
+        // Stored image vector per listing; the synthetic encoder is only a
+        // dimension-matched fallback for any (here, none) photo-less item.
+        let vectors: Vec<Vec<f32>> = catalog
+            .iter()
+            .map(|l| stored.get(&l.id).cloned().unwrap_or_else(|| SyntheticEncoder { dim }.encode(l)))
+            .collect();
+        let index = CatalogIndex::build_with_vectors(&catalog, vectors);
+        Ok((catalog, index))
+    }
+}
+
+/// Warm a taste vector from a few "liked" listing ids, in memory, without
+/// touching the store (the feed-html preview uses this). Mirrors the eval's
+/// history replay: decay the liked unit vectors into a query, union their attrs.
+fn build_preview_taste(
+    like_ids: &[String],
+    index: &CatalogIndex,
+    cfg: &config::EngineConfig,
+) -> Option<TasteState> {
+    let mut u: Option<Vec<f32>> = None;
+    let mut last_ms: Option<i64> = None;
+    let mut attrs = std::collections::BTreeSet::new();
+    let mut n = 0i64;
+    for (step, id) in like_ids.iter().enumerate() {
+        let Some(&i) = index.by_id.get(id) else { continue };
+        let now_ms = step as i64 * 86_400_000;
+        let v = crate::taste::unit(&index.vectors[i]).unwrap_or_else(|_| index.vectors[i].clone());
+        u = Some(crate::taste::compute_update_window(u.as_deref(), last_ms, 1.0, &v, now_ms, cfg, cfg.tau_ms()).ok()?);
+        last_ms = Some(now_ms);
+        attrs.extend(index.attrs[i].iter().cloned());
+        n += 1;
+    }
+    if n == 0 {
+        return None;
+    }
+    let query = u.and_then(|v| crate::taste::unit(&v).ok()).unwrap_or_default();
+    Some(TasteState { query, attrs, n_interactions: n })
+}
+
+/// Render a ranked feed to a self-contained HTML gallery (external images load
+/// from the boutique CDN in the browser). A local-preview convenience so the
+/// real ranking is visible without standing up the extension.
+fn render_feed_html(
+    rows: &[Listing],
+    seeds: &[&Listing],
+    cfg: &config::EngineConfig,
+    n: usize,
+    catalog_len: usize,
+) -> String {
+    fn esc(s: &str) -> String {
+        s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+    }
+    let mut cards = String::new();
+    for l in rows.iter().take(n) {
+        let img = esc(l.image_url.as_deref().unwrap_or(""));
+        let chips: String = l
+            .match_reasons
+            .iter()
+            .map(|r| format!("<span class=chip>{}</span>", esc(r)))
+            .collect();
+        cards.push_str(&format!(
+            "<a class=card href=\"{url}\" target=_blank rel=noreferrer>\
+             <div class=ph><img loading=lazy src=\"{img}\" alt=\"\"></div>\
+             <div class=meta><div class=brand>{brand}</div><div class=title>{title}</div>\
+             <div class=sub><span class=sw style=\"background:{hex}\"></span>{color} &middot; ${price:.0}</div>\
+             <div class=chips>{chips}</div><div class=score>match {score:.3}</div></div></a>",
+            url = esc(&l.listing_url), img = img, brand = esc(&l.brand), title = esc(&l.title),
+            hex = esc(&l.color_hex), color = esc(&l.color), price = l.price, chips = chips, score = l.match_score
+        ));
+    }
+    let seedline = if seeds.is_empty() {
+        "cold start (no likes), ranked by freshness".to_string()
+    } else {
+        format!(
+            "warmed by {} like(s): {}",
+            seeds.len(),
+            seeds.iter().map(|s| esc(&s.title)).collect::<Vec<_>>().join(", ")
+        )
+    };
+    format!(
+        "<!doctype html><meta charset=utf-8><title>ModSearch feed preview</title>\
+         <style>body{{margin:0;background:#f7f6f3;color:#1c1c1e;font:14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif}}\
+         header{{padding:20px 24px;border-bottom:1px solid #e3e0da}}h1{{font-size:15px;margin:0 0 4px;font-weight:600}}\
+         .muted{{color:#6b6b6b;font-size:12px}}.grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;padding:24px}}\
+         .card{{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid #e3e0da;border-radius:10px;overflow:hidden}}\
+         .ph{{aspect-ratio:3/4;background:#eee;overflow:hidden}}.ph img{{width:100%;height:100%;object-fit:cover;display:block}}\
+         .meta{{padding:10px 12px}}.brand{{font-weight:600;font-size:12px}}.title{{font-size:12px;color:#333;margin:2px 0 6px;height:2.8em;overflow:hidden}}\
+         .sub{{font-size:12px;color:#555;display:flex;align-items:center;gap:6px}}.sw{{width:12px;height:12px;border-radius:3px;border:1px solid #0002}}\
+         .chips{{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}}.chip{{font-size:10px;background:#efece6;border-radius:10px;padding:1px 7px}}\
+         .score{{margin-top:6px;font-size:10px;color:#999}}</style>\
+         <header><h1>ModSearch feed &middot; {catalog_len} items &middot; {encoder} encoder (dim {dim})</h1>\
+         <div class=muted>{seedline} &middot; showing top {shown}</div></header>\
+         <div class=grid>{cards}</div>",
+        catalog_len = catalog_len, encoder = esc(&cfg.encoder_kind), dim = cfg.vector_dim,
+        seedline = seedline, shown = rows.len().min(n), cards = cards
+    )
+}
+
 fn db_path() -> String {
     if let Ok(p) = std::env::var("MOD_ENGINE_DB") {
         return p;
@@ -410,6 +528,45 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // Local preview: render the real ranked feed as an HTML gallery. Warm it with
+    // `--like <id>` (repeatable) to see personalization; `--n` sets the card
+    // count. Usage: `feed-html --like <id> --like <id> > feed.html && open feed.html`.
+    if std::env::args().nth(1).as_deref() == Some("feed-html") {
+        let raw: Vec<String> = std::env::args().skip(2).collect();
+        let mut like_ids: Vec<String> = Vec::new();
+        let mut n = 60usize;
+        let mut it = raw.iter();
+        while let Some(a) = it.next() {
+            match a.as_str() {
+                "--like" => {
+                    if let Some(v) = it.next() {
+                        like_ids.push(v.clone());
+                    }
+                }
+                "--n" => {
+                    if let Some(v) = it.next() {
+                        n = v.parse().unwrap_or(60);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let st = Store::open(&db_path())?;
+        let mut cfg = config::EngineConfig::load()?;
+        let (catalog, index) = build_serving_index(&st, &mut cfg)?;
+        let taste = build_preview_taste(&like_ids, &index, &cfg);
+        let seeds: Vec<&Listing> =
+            like_ids.iter().filter_map(|id| index.by_id.get(id).map(|&i| &catalog[i])).collect();
+        let env = FeedEnv { cfg: &cfg, index: &index, taste, day_epoch: today_epoch() as i64 };
+        let mut rng = det::DetRng::new(det::seed_for("preview", today_epoch(), "feed-html"));
+        let (rows, _) = handlers::feed(
+            &catalog, &model::FeedQuery::default(), &HashSet::new(), &env, &mut rng,
+            &IdentityReranker, &SeededFraction,
+        );
+        println!("{}", render_feed_html(&rows, &seeds, &cfg, n, catalog.len()));
+        return Ok(());
+    }
+
     // A16 (ingest feature): `ingest-shopify <url>` pulls a boutique's
     // products.json, embeds each photo on the CPU encoder, and persists listing
     // + vector into the store at MOD_ENGINE_DB (use a dedicated DB to keep the
@@ -475,11 +632,10 @@ fn main() -> anyhow::Result<()> {
     }
 
     let st = Store::open(&db_path())?;
-    st.seed_catalog(&fixtures::catalog())?;
-    let catalog = st.load_catalog()?; // A10: the feed serves rows from the store
-    let cfg = config::EngineConfig::load()?;
-    let encoder = SyntheticEncoder { dim: cfg.vector_dim };
-    let index = CatalogIndex::build(&catalog, &encoder);
+    let mut cfg = config::EngineConfig::load()?;
+    // A10 + A16: serve the real ingested catalog on its stored image vectors when
+    // one exists, else the synthetic fixture catalog for local dev.
+    let (catalog, index) = build_serving_index(&st, &mut cfg)?;
     let ctx = Ctx::new(cfg, &catalog);
 
     if std::env::args().nth(1).as_deref() == Some("oneshot") {
@@ -557,6 +713,30 @@ mod tests {
         assert_eq!(parse_client_ts("1970-01-02T00:00:01.250Z"), Some(86_400_000 + 1250));
         assert_eq!(parse_client_ts("1970-01-01T02:00:00+02:00"), Some(0));
         assert_eq!(parse_client_ts("garbage"), None);
+    }
+
+    #[test]
+    fn serving_index_switches_on_stored_vectors() {
+        // empty store: synthetic fixture catalog (dev/default), cfg untouched
+        let st = Store::open(":memory:").unwrap();
+        let mut cfg = config::EngineConfig::default();
+        let (cat, _idx) = build_serving_index(&st, &mut cfg).unwrap();
+        assert_eq!(cfg.encoder_kind, "synthetic");
+        assert!(cat.len() >= 90, "fixture catalog seeded");
+
+        // store with real image vectors: served on them, dim + kind follow
+        let st2 = Store::open(":memory:").unwrap();
+        let seed = fixtures::catalog();
+        st2.seed_catalog(&seed[..3]).unwrap();
+        for l in &seed[..3] {
+            st2.put_item_vector(&l.id, &vec![0.5f32; 768]).unwrap();
+        }
+        let mut cfg2 = config::EngineConfig::default();
+        let (cat2, idx2) = build_serving_index(&st2, &mut cfg2).unwrap();
+        assert_eq!(cfg2.encoder_kind, "onnx");
+        assert_eq!(cfg2.vector_dim, 768);
+        assert_eq!(cat2.len(), 3);
+        assert_eq!(idx2.vectors[0].len(), 768);
     }
 
     #[test]
