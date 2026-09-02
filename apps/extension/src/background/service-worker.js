@@ -40,3 +40,13 @@ chrome.runtime.onMessage.addListener((req, _sender, sendResponse) => {
 chrome.action.onClicked.addListener(() => {
   chrome.tabs.create({ url: chrome.runtime.getURL("app/index.html") });
 });
+
+// A15: on first install, show the consent screen before anything can be captured.
+// The content script stays inert until the user opts in there; capture events
+// arrive here as ordinary { type: "recordEvents" } messages and ride the same
+// relay to the engine, so nothing else in this worker changes.
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === "install") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("src/consent/consent.html") });
+  }
+});

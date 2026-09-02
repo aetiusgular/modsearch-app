@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ModSearch, your data stays on your device</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; background: #f7f6f3; color: #1c1c1e; font: 15px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  @media (prefers-color-scheme: dark) { body { background: #17181a; color: #eceae6; } .card { background: #202225 !important; border-color: #2f3236 !important; } .muted { color: #9a9a9a !important; } }
+  main { max-width: 560px; margin: 8vh auto; padding: 0 24px; }
+  .card { background: #fff; border: 1px solid #e3e0da; border-radius: 14px; padding: 28px 28px 24px; }
+  h1 { font-size: 20px; margin: 0 0 10px; letter-spacing: -0.01em; }
+  p { margin: 0 0 14px; }
+  ul { margin: 0 0 20px; padding-left: 18px; }
+  li { margin: 4px 0; }
+  .muted { color: #6b6b6b; font-size: 13px; }
+  .row { display: flex; gap: 10px; margin-top: 6px; }
+  button { font: inherit; padding: 10px 16px; border-radius: 9px; border: 1px solid #cfccc4; background: #fff; cursor: pointer; }
+  button.primary { background: #1c1c1e; color: #fff; border-color: #1c1c1e; }
+  #status { margin-top: 14px; min-height: 1.2em; font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>ModSearch learns your taste on your device</h1>
+    <p id="disclosure"></p>
+    <ul class="muted">
+      <li>Processed locally on your device. Nothing is sent to a server.</li>
+      <li>Only the products on pages you actively open, while they are in the foreground.</li>
+      <li>Never sold or shared.</li>
+      <li>Off by default, and you can turn it off again any time.</li>
+    </ul>
+    <div class="row">
+      <button id="enable" class="primary">Enable local personalization</button>
+      <button id="notnow">Not now</button>
+    </div>
+    <div id="status" class="muted"></div>
+  </div>
+</main>
+<script src="consent.js"></script>
+<script>
+  (function () {
+    var C = globalThis.__msConsent;
+    var $ = function (id) { return document.getElementById(id); };
+    function status(t) { $("status").textContent = t; }
+    $("disclosure").textContent = C.DISCLOSURE;
+    $("enable").addEventListener("click", async function () {
+      await C.setCapture(true);
+      status("Enabled. ModSearch will personalize from the products you view, locally.");
+    });
+    $("notnow").addEventListener("click", async function () {
+      await C.setCapture(false);
+      status("Off. Nothing is captured. You can enable this later from the extension.");
+    });
+    (async function () {
+      var s = await C.get();
+      if (s.capture) status("Personalization is on. You can turn it off with Not now.");
+    })();
+  })();
+</script>
+</body>
+</html>

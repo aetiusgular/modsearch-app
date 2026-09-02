@@ -4,8 +4,15 @@
   "version": "0.0.1",
   "description": "Local-first universal fashion search. Personalizes on your device; your data stays local.",
   "permissions": ["storage", "alarms", "nativeMessaging"],
-  "host_permissions": [],
+  "host_permissions": ["https://nomanwalksalone.com/*", "https://www.nomanwalksalone.com/*"],
   "background": { "scripts": ["background/service-worker.js"], "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["https://nomanwalksalone.com/*", "https://www.nomanwalksalone.com/*"],
+      "js": ["src/content/capture-core.js", "src/consent/consent.js", "src/content/dwell.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "browser_specific_settings": { "gecko": { "id": "modsearch@modsearch.dev" } },
   "action": { "default_title": "ModSearch" }
 }

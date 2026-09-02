@@ -7,6 +7,7 @@
   "dependencies": { "@modsearch/contract": "workspace:*" },
   "scripts": {
     "build": "echo \"TODO: bundle Chromium + Firefox builds; Safari is a separate Xcode app\"",
+    "test": "node src/content/capture-core.test.js",
     "lint": "echo \"TODO: eslint\""
   }
 }
